@@ -12,4 +12,6 @@ public interface TrabajoRepository extends JpaRepository<Trabajo, Long> {
 	List<Trabajo> findByProveedorId(Long proveedorId);
 
 	List<Trabajo> findByPagado(boolean pagado);
+
+    List<Trabajo> findByCliente_Id(Long id);
 }

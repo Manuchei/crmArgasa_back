@@ -11,24 +11,32 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
+
+import java.util.Arrays;
+
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
 
-	// 👇 No se inyecta por constructor, se autowireda después
 	@Autowired
 	private JwtFilter jwtFilter;
 
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-		http.csrf(csrf -> csrf.disable())
-				.authorizeHttpRequests(
-						auth -> auth.requestMatchers("/api/auth/**").permitAll().anyRequest().authenticated())
-				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+		http.cors(cors -> cors.disable()) // o configura si necesitas CORS global
+				.csrf(csrf -> csrf.disable()) // desactiva CSRF para APIs REST
+				.authorizeHttpRequests(auth -> auth.requestMatchers("/api/auth/**").permitAll() // login, register
+						.requestMatchers("/api/clientes/**").permitAll() // 🔥 permite clientes
+						.requestMatchers("/api/trabajos/**").permitAll() // 🔥 permite trabajos
+						.anyRequest().authenticated() // el resto requiere login
+				).sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
-		// 👇 Añadimos el filtro
+		// Añade el filtro JWT antes de la autenticación por usuario/contraseña
 		http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();
@@ -42,5 +50,19 @@ public class SecurityConfig {
 	@Bean
 	public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
 		return config.getAuthenticationManager();
+	}
+
+	@Bean
+	public CorsFilter corsFilter() {
+		CorsConfiguration config = new CorsConfiguration();
+		config.setAllowCredentials(true);
+		config.setAllowedOrigins(Arrays.asList("http://localhost:4200" // dominio del frontend Angular
+		));
+		config.setAllowedHeaders(Arrays.asList("Origin", "Content-Type", "Accept", "Authorization"));
+		config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+
+		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("/**", config);
+		return new CorsFilter(source);
 	}
 }

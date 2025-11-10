@@ -46,4 +46,10 @@ public class TrabajoServiceImpl implements TrabajoService {
 	public List<Trabajo> findByPagado(boolean pagado) {
 		return trabajoRepository.findByPagado(pagado);
 	}
+	
+	@Override
+	public List<Trabajo> findByCliente(Long clienteId) {
+	    return trabajoRepository.findByCliente_Id(clienteId);
+	}
+
 }
