@@ -59,8 +59,10 @@ public class LlamadaServiceImpl implements LlamadaService {
 			String clienteNombre = (llamada.getCliente() != null) ? llamada.getCliente().getNombre() : "Sin cliente";
 			String title = llamada.getMotivo() + " - " + clienteNombre;
 			String start = llamada.getFechaHora().format(formatter);
-			String end = llamada.getFechaHora().plusMinutes(30).format(formatter); // duración estimada 30 min
-			return new EventoCalendarioDTO(title, start, end, llamada.getEstado());
+			String end = llamada.getFechaHora().plusMinutes(30).format(formatter);
+			return new EventoCalendarioDTO(llamada.getId(), // 🔹 ID añadido aquí
+					title, start, end, llamada.getEstado());
 		}).toList();
 	}
+
 }

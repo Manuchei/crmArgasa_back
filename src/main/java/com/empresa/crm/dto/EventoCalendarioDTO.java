@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class EventoCalendarioDTO {
+	private Long id;
 	private String title;
 	private String start;
 	private String end;

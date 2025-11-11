@@ -1,7 +1,6 @@
 package com.empresa.crm.services;
 
 import java.util.List;
-
 import com.empresa.crm.entities.Trabajo;
 
 public interface TrabajoService {
@@ -16,7 +15,6 @@ public interface TrabajoService {
 	List<Trabajo> findByProveedor(Long proveedorId);
 
 	List<Trabajo> findByPagado(boolean pagado);
-	
-	List<Trabajo> findByCliente(Long clienteId);
 
+	List<Trabajo> findByCliente(Long clienteId);
 }

@@ -1,5 +1,6 @@
 package com.empresa.crm.entities;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.persistence.CascadeType;
@@ -31,8 +32,8 @@ public class Proveedor {
 	private boolean trabajaEnArgasa;
 	private boolean trabajaEnLuga;
 
-	@OneToMany(mappedBy = "proveedor", cascade = CascadeType.ALL)
-	private List<Trabajo> trabajos;
+	@OneToMany(mappedBy = "proveedor", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<Trabajo> trabajos = new ArrayList<>();
 
 	@OneToMany(mappedBy = "proveedor", cascade = CascadeType.ALL)
 	private List<FacturaProveedor> facturas;

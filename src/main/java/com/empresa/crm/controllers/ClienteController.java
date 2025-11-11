@@ -2,30 +2,21 @@ package com.empresa.crm.controllers;
 
 import java.util.List;
 
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.empresa.crm.entities.Cliente;
+import com.empresa.crm.entities.Trabajo;
 import com.empresa.crm.repositories.ClienteRepository;
 import com.empresa.crm.services.ClienteService;
 
 @RestController
 @RequestMapping("/api/clientes")
-@CrossOrigin(origins = "http://localhost:4200") // frontend Angular
+@CrossOrigin(origins = "http://localhost:4200")
 public class ClienteController {
 
 	private final ClienteService clienteService;
-	private final ClienteRepository clienteRepository; // ✅ Campo inyectado
+	private final ClienteRepository clienteRepository;
 
-	// ✅ Constructor único con inyección de dependencias
 	public ClienteController(ClienteService clienteService, ClienteRepository clienteRepository) {
 		this.clienteService = clienteService;
 		this.clienteRepository = clienteRepository;
@@ -43,6 +34,23 @@ public class ClienteController {
 
 	@PostMapping
 	public Cliente crearCliente(@RequestBody Cliente cliente) {
+
+		if (cliente.getTrabajos() != null) {
+			for (Trabajo t : cliente.getTrabajos()) {
+				t.setCliente(cliente);
+			}
+		}
+
+		double totalImporte = cliente.getTrabajos() != null
+				? cliente.getTrabajos().stream().mapToDouble(t -> t.getImporte() != null ? t.getImporte() : 0).sum()
+				: 0;
+
+		double totalPagado = cliente.getTrabajos() != null ? cliente.getTrabajos().stream()
+				.mapToDouble(t -> t.getImportePagado() != null ? t.getImportePagado() : 0).sum() : 0;
+
+		cliente.setTotalImporte(totalImporte);
+		cliente.setTotalPagado(totalPagado);
+
 		return clienteService.save(cliente);
 	}
 
@@ -59,11 +67,34 @@ public class ClienteController {
 
 	@GetMapping("/buscar")
 	public List<Cliente> buscarClientes(@RequestParam String texto, @RequestParam(required = false) String empresa) {
-
 		if (empresa != null && !empresa.isBlank()) {
 			return clienteRepository.buscarPorNombreYEmpresa(texto, empresa);
 		} else {
 			return clienteRepository.buscarPorNombreOApellido(texto);
 		}
+	}
+
+	// ✅ NUEVO: Añadir trabajo a cliente existente
+	@PostMapping("/{id}/trabajos")
+	public Cliente agregarTrabajo(@PathVariable Long id, @RequestBody Trabajo trabajo) {
+		Cliente cliente = clienteService.findById(id);
+
+		if (cliente == null) {
+			throw new RuntimeException("Cliente no encontrado");
+		}
+
+		trabajo.setCliente(cliente);
+		cliente.getTrabajos().add(trabajo);
+
+		double totalImporte = cliente.getTrabajos().stream()
+				.mapToDouble(t -> t.getImporte() != null ? t.getImporte() : 0.0).sum();
+
+		double totalPagado = cliente.getTrabajos().stream()
+				.mapToDouble(t -> t.getImportePagado() != null ? t.getImportePagado() : 0.0).sum();
+
+		cliente.setTotalImporte(totalImporte);
+		cliente.setTotalPagado(totalPagado);
+
+		return clienteService.save(cliente);
 	}
 }
