@@ -20,7 +20,7 @@ import com.empresa.crm.services.LlamadaService;
 
 @RestController
 @RequestMapping("/api/llamadas")
-@CrossOrigin(origins = "http://localhost:4200")
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class LlamadaController {
 
 	private final LlamadaService llamadaService;

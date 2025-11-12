@@ -1,5 +1,7 @@
 package com.empresa.crm.dto;
 
+import java.time.LocalDateTime;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,7 +12,9 @@ import lombok.NoArgsConstructor;
 public class EventoCalendarioDTO {
 	private Long id;
 	private String title;
-	private String start;
-	private String end;
+	private LocalDateTime start;
+	private LocalDateTime end;
 	private String estado;
+	private String motivo;
+	private String observaciones;
 }

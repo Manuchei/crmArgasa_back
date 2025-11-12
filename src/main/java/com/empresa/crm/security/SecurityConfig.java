@@ -33,6 +33,8 @@ public class SecurityConfig {
 				.authorizeHttpRequests(auth -> auth.requestMatchers("/api/auth/**").permitAll() // login, register
 						.requestMatchers("/api/clientes/**").permitAll() // 🔥 permite clientes
 						.requestMatchers("/api/trabajos/**").permitAll() // 🔥 permite trabajos
+						.requestMatchers("/api/llamadas/**").permitAll() // 👈 añade esto
+
 						.anyRequest().authenticated() // el resto requiere login
 				).sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 

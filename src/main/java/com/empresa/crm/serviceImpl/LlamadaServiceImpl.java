@@ -3,6 +3,7 @@ package com.empresa.crm.serviceImpl;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
@@ -52,17 +53,19 @@ public class LlamadaServiceImpl implements LlamadaService {
 
 	@Override
 	public List<EventoCalendarioDTO> getEventosCalendario() {
-		List<Llamada> llamadas = llamadaRepository.findAll();
-		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-
-		return llamadas.stream().map(llamada -> {
-			String clienteNombre = (llamada.getCliente() != null) ? llamada.getCliente().getNombre() : "Sin cliente";
-			String title = llamada.getMotivo() + " - " + clienteNombre;
-			String start = llamada.getFechaHora().format(formatter);
-			String end = llamada.getFechaHora().plusMinutes(30).format(formatter);
-			return new EventoCalendarioDTO(llamada.getId(), // 🔹 ID añadido aquí
-					title, start, end, llamada.getEstado());
-		}).toList();
+	    return llamadaRepository.findAll().stream()
+	        .map(llamada -> {
+	            EventoCalendarioDTO dto = new EventoCalendarioDTO();
+	            dto.setId(llamada.getId());
+	            dto.setTitle(llamada.getMotivo()); // 👈 o añade " - " + estado si quieres
+	            dto.setStart(llamada.getFechaHora());
+	            dto.setEstado(llamada.getEstado());
+	            dto.setMotivo(llamada.getMotivo());
+	            dto.setObservaciones(llamada.getObservaciones());
+	            return dto;
+	        })
+	        .collect(Collectors.toList());
 	}
+
 
 }
