@@ -1,20 +1,15 @@
 package com.empresa.crm.dto;
 
-import java.time.LocalDateTime;
-
-import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class EventoCalendarioDTO {
+
 	private Long id;
-	private String title;
-	private LocalDateTime start;
-	private LocalDateTime end;
+	private String title; // motivo
+	private String fecha; // formato yyyy-MM-dd'T'HH:mm:ss
 	private String estado;
-	private String motivo;
 	private String observaciones;
+	private String start;
+
 }

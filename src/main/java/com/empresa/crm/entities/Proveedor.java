@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -24,6 +25,8 @@ public class Proveedor {
 	private String nombre;
 	private String apellido;
 	private String oficio; // fontanero, electricista, carpintero...
+	
+	@Column(nullable = true)
 	private String empresa; // 🔹 "argasa" o "luga"
 
 	private String telefono;

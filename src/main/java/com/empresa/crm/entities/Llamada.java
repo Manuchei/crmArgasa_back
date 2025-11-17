@@ -2,13 +2,7 @@ package com.empresa.crm.entities;
 
 import java.time.LocalDateTime;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Data;
 
 @Data
@@ -22,13 +16,14 @@ public class Llamada {
 
 	private String motivo;
 
-	private LocalDateTime fechaHora;
+	@Column(name = "fecha", nullable = false)
+	private LocalDateTime fecha;
 
-	private String estado; // "pendiente", "realizada", "cancelada"
+	private String estado;
+
+	private String observaciones;
 
 	@ManyToOne
 	@JoinColumn(name = "cliente_id")
 	private Cliente cliente;
-
-	private String observaciones;
 }

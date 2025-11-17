@@ -77,4 +77,19 @@ public class ProveedorController {
 		}
 	}
 
+	@GetMapping("/argasa")
+	public List<Proveedor> getArgasa() {
+		return proveedorRepository.findByTrabajaEnArgasaTrue();
+	}
+
+	@GetMapping("/luga")
+	public List<Proveedor> getLuga() {
+		return proveedorRepository.findByTrabajaEnLugaTrue();
+	}
+
+	@GetMapping("/buscar/{empresa}")
+	public List<Proveedor> buscarPorEmpresa(@PathVariable String empresa, @RequestParam String texto) {
+		return proveedorRepository.buscarPorNombreYEmpresa(texto, empresa);
+	}
+
 }

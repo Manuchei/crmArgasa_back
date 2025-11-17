@@ -1,6 +1,5 @@
 package com.empresa.crm.serviceImpl;
 
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -15,57 +14,52 @@ import com.empresa.crm.services.LlamadaService;
 @Service
 public class LlamadaServiceImpl implements LlamadaService {
 
-	private final LlamadaRepository llamadaRepository;
+    private final LlamadaRepository repo;
 
-	public LlamadaServiceImpl(LlamadaRepository llamadaRepository) {
-		this.llamadaRepository = llamadaRepository;
-	}
+    public LlamadaServiceImpl(LlamadaRepository repo) {
+        this.repo = repo;
+    }
 
-	@Override
-	public List<Llamada> findAll() {
-		return llamadaRepository.findAll();
-	}
+    @Override
+    public List<Llamada> findAll() {
+        return repo.findAll();
+    }
 
-	@Override
-	public Llamada findById(Long id) {
-		return llamadaRepository.findById(id).orElse(null);
-	}
+    @Override
+    public Llamada findById(Long id) {
+        return repo.findById(id).orElse(null);
+    }
 
-	@Override
-	public Llamada save(Llamada llamada) {
-		return llamadaRepository.save(llamada);
-	}
+    @Override
+    public Llamada save(Llamada llamada) {
+        return repo.save(llamada);
+    }
 
-	@Override
-	public void deleteById(Long id) {
-		llamadaRepository.deleteById(id);
-	}
+    @Override
+    public void deleteById(Long id) {
+        repo.deleteById(id);
+    }
 
-	@Override
-	public List<Llamada> findByEstado(String estado) {
-		return llamadaRepository.findByEstado(estado);
-	}
+    // FULLCALENDAR READY
+    @Override
+    public List<EventoCalendarioDTO> getEventosCalendario() {
 
-	@Override
-	public List<Llamada> findByFechaHoraBetween(LocalDateTime inicio, LocalDateTime fin) {
-		return llamadaRepository.findByFechaHoraBetween(inicio, fin);
-	}
+        DateTimeFormatter f = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
-	@Override
-	public List<EventoCalendarioDTO> getEventosCalendario() {
-	    return llamadaRepository.findAll().stream()
-	        .map(llamada -> {
-	            EventoCalendarioDTO dto = new EventoCalendarioDTO();
-	            dto.setId(llamada.getId());
-	            dto.setTitle(llamada.getMotivo()); // 👈 o añade " - " + estado si quieres
-	            dto.setStart(llamada.getFechaHora());
-	            dto.setEstado(llamada.getEstado());
-	            dto.setMotivo(llamada.getMotivo());
-	            dto.setObservaciones(llamada.getObservaciones());
-	            return dto;
-	        })
-	        .collect(Collectors.toList());
-	}
+        return repo.findAll().stream().map(l -> {
+            EventoCalendarioDTO dto = new EventoCalendarioDTO();
+            dto.setId(l.getId());
+            dto.setTitle(l.getMotivo());
+            
+            String fechaFormateada = l.getFecha().format(f);
 
+            dto.setFecha(fechaFormateada); // si lo necesitas
+            dto.setStart(fechaFormateada); // FULLCALENDAR NECESITA ESTE CAMPO
+
+            dto.setEstado(l.getEstado());
+            dto.setObservaciones(l.getObservaciones());
+            return dto;
+        }).collect(Collectors.toList());
+    }
 
 }

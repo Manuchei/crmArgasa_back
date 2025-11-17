@@ -15,10 +15,5 @@ public interface LlamadaService {
 
 	void deleteById(Long id);
 
-	List<Llamada> findByEstado(String estado);
-
-	List<Llamada> findByFechaHoraBetween(LocalDateTime inicio, LocalDateTime fin);
-
 	List<EventoCalendarioDTO> getEventosCalendario();
-
 }
