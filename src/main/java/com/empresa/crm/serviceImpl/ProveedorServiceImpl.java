@@ -29,8 +29,15 @@ public class ProveedorServiceImpl implements ProveedorService {
 
 	@Override
 	public Proveedor save(Proveedor proveedor) {
-		return proveedorRepository.save(proveedor);
+
+	    Double total = proveedor.getImporteTotal() != null ? proveedor.getImporteTotal() : 0.0;
+	    Double pagado = proveedor.getImportePagado() != null ? proveedor.getImportePagado() : 0.0;
+
+	    proveedor.setImportePendiente(total - pagado);
+
+	    return proveedorRepository.save(proveedor);
 	}
+
 
 	@Override
 	public void deleteById(Long id) {

@@ -34,6 +34,7 @@ public class SecurityConfig {
 						.requestMatchers("/api/clientes/**").permitAll() // 🔥 permite clientes
 						.requestMatchers("/api/trabajos/**").permitAll() // 🔥 permite trabajos
 						.requestMatchers("/api/llamadas/**").permitAll() // 👈 añade esto
+						.requestMatchers("/api/proveedores/**").permitAll()
 
 						.anyRequest().authenticated() // el resto requiere login
 				).sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));

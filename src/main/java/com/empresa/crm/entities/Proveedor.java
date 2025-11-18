@@ -34,11 +34,24 @@ public class Proveedor {
 
 	private boolean trabajaEnArgasa;
 	private boolean trabajaEnLuga;
+	
+	private String trabajoRealizado;
+
 
 	@OneToMany(mappedBy = "proveedor", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<Trabajo> trabajos = new ArrayList<>();
 
 	@OneToMany(mappedBy = "proveedor", cascade = CascadeType.ALL)
 	private List<FacturaProveedor> facturas;
+	
+	@Column(name = "importe_total")
+	private Double importeTotal;
+
+	@Column(name = "importe_pagado")
+	private Double importePagado;
+
+	@Column(name = "importe_pendiente")
+	private Double importePendiente;
+
 
 }
