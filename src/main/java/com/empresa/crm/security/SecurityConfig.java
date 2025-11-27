@@ -28,22 +28,28 @@ public class SecurityConfig {
 
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-		http.cors(cors -> cors.disable()) // o configura si necesitas CORS global
-				.csrf(csrf -> csrf.disable()) // desactiva CSRF para APIs REST
-				.authorizeHttpRequests(auth -> auth.requestMatchers("/api/auth/**").permitAll() // login, register
-						.requestMatchers("/api/clientes/**").permitAll() // 🔥 permite clientes
-						.requestMatchers("/api/trabajos/**").permitAll() // 🔥 permite trabajos
-						.requestMatchers("/api/llamadas/**").permitAll() // 👈 añade esto
-						.requestMatchers("/api/proveedores/**").permitAll()
 
-						.anyRequest().authenticated() // el resto requiere login
-				).sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+	    http
+	        .cors(cors -> {})
+	        .csrf(csrf -> csrf.disable())
+	        .authorizeHttpRequests(auth -> auth
+	            .requestMatchers("/api/auth/**").permitAll()
+	            .requestMatchers("/api/clientes/**").permitAll()
+	            .requestMatchers("/api/trabajos/**").permitAll()
+	            .requestMatchers("/api/llamadas/**").permitAll()
+	            .requestMatchers("/api/proveedores/**").permitAll()
+	            .requestMatchers("/api/trabajos-proveedor/**").permitAll()
+	            .anyRequest().authenticated()
+	        )
+	        .sessionManagement(session -> session
+	            .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+	        );
 
-		// Añade el filtro JWT antes de la autenticación por usuario/contraseña
-		http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+	    http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
-		return http.build();
+	    return http.build();
 	}
+
 
 	@Bean
 	public PasswordEncoder passwordEncoder() {

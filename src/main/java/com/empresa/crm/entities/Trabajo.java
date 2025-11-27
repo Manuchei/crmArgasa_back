@@ -3,6 +3,7 @@ package com.empresa.crm.entities;
 import jakarta.persistence.*;
 import lombok.Data;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Data
 @Entity
@@ -21,17 +22,19 @@ public class Trabajo {
 	// 🔹 Relación con Cliente
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "cliente_id")
-	@JsonBackReference
+	@JsonIgnore
 	private Cliente cliente;
 
 	// 🔹 Relación con Proveedor (para facturas)
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "proveedor_id")
+	@JsonIgnore
 	private Proveedor proveedor;
 
 	// 🔹 Relación con FacturaProveedor
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "factura_id")
+	@JsonIgnore
 	private FacturaProveedor factura;
 
 	// Métodos adicionales usados en otros servicios

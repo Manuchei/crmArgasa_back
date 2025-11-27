@@ -11,51 +11,60 @@ import com.empresa.crm.services.ProveedorService;
 @Service
 public class ProveedorServiceImpl implements ProveedorService {
 
-	private final ProveedorRepository proveedorRepository;
+    private final ProveedorRepository proveedorRepository;
 
-	public ProveedorServiceImpl(ProveedorRepository proveedorRepository) {
-		this.proveedorRepository = proveedorRepository;
-	}
+    public ProveedorServiceImpl(ProveedorRepository proveedorRepository) {
+        this.proveedorRepository = proveedorRepository;
+    }
 
-	@Override
-	public List<Proveedor> findAll() {
-		return proveedorRepository.findAll();
-	}
+    @Override
+    public List<Proveedor> findAll() {
+        return proveedorRepository.findAll();
+    }
 
-	@Override
-	public Proveedor findById(Long id) {
-		return proveedorRepository.findById(id).orElse(null);
-	}
+    @Override
+    public Proveedor findById(Long id) {
+        return proveedorRepository.findById(id).orElse(null);
+    }
 
-	@Override
-	public Proveedor save(Proveedor proveedor) {
+    @Override
+    public Proveedor save(Proveedor proveedor) {
 
-	    Double total = proveedor.getImporteTotal() != null ? proveedor.getImporteTotal() : 0.0;
-	    Double pagado = proveedor.getImportePagado() != null ? proveedor.getImportePagado() : 0.0;
+        double total = 0.0;
+        double pagado = 0.0;
 
-	    proveedor.setImportePendiente(total - pagado);
+        if (proveedor.getTrabajos() != null) {
+            for (var trabajo : proveedor.getTrabajos()) {
+                total += (trabajo.getImporte() != null) ? trabajo.getImporte() : 0;
+                pagado += (trabajo.getImportePagado() != null) ? trabajo.getImportePagado() : 0;
+            }
+        }
 
-	    return proveedorRepository.save(proveedor);
-	}
+        proveedor.setImporteTotal(total);
+        proveedor.setImportePagado(pagado);
+        proveedor.setImportePendiente(total - pagado);
 
+        return proveedorRepository.save(proveedor);
+    }
+    @Override
+    public void deleteById(Long id) {
+        proveedorRepository.deleteById(id);
+    }
 
-	@Override
-	public void deleteById(Long id) {
-		proveedorRepository.deleteById(id);
-	}
+    @Override
+    public List<Proveedor> findByOficio(String oficio) {
+        return proveedorRepository.findByOficio(oficio);
+    }
 
-	@Override
-	public List<Proveedor> findByOficio(String oficio) {
-		return proveedorRepository.findByOficio(oficio);
-	}
+    @Override
+    public List<Proveedor> findByEmpresa(String empresa) {
 
-	@Override
-	public List<Proveedor> findByEmpresa(String empresa) {
-		if (empresa.equalsIgnoreCase("argasa")) {
-			return proveedorRepository.findByTrabajaEnArgasaTrue();
-		} else if (empresa.equalsIgnoreCase("luga")) {
-			return proveedorRepository.findByTrabajaEnLugaTrue();
-		}
-		return proveedorRepository.findAll();
-	}
+        if (empresa.equalsIgnoreCase("argasa")) {
+            return proveedorRepository.findByTrabajaEnArgasaTrue();
+        } else if (empresa.equalsIgnoreCase("luga")) {
+            return proveedorRepository.findByTrabajaEnLugaTrue();
+        }
+
+        return proveedorRepository.findAll();
+    }
 }

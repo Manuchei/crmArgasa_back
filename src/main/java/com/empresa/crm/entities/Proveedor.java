@@ -3,9 +3,13 @@ package com.empresa.crm.entities;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -25,7 +29,7 @@ public class Proveedor {
 	private String nombre;
 	private String apellido;
 	private String oficio; // fontanero, electricista, carpintero...
-	
+
 	@Column(nullable = true)
 	private String empresa; // 🔹 "argasa" o "luga"
 
@@ -34,16 +38,16 @@ public class Proveedor {
 
 	private boolean trabajaEnArgasa;
 	private boolean trabajaEnLuga;
-	
+
 	private String trabajoRealizado;
 
-
-	@OneToMany(mappedBy = "proveedor", cascade = CascadeType.ALL, orphanRemoval = true)
-	private List<Trabajo> trabajos = new ArrayList<>();
+	@OneToMany(mappedBy = "proveedor", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+	@JsonIgnore   // ✅ en vez de JsonManagedReference
+	private List<Trabajo> trabajos;
 
 	@OneToMany(mappedBy = "proveedor", cascade = CascadeType.ALL)
 	private List<FacturaProveedor> facturas;
-	
+
 	@Column(name = "importe_total")
 	private Double importeTotal;
 
@@ -52,6 +56,5 @@ public class Proveedor {
 
 	@Column(name = "importe_pendiente")
 	private Double importePendiente;
-
 
 }
