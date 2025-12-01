@@ -16,81 +16,49 @@ import com.empresa.crm.services.ProveedorService;
 public class ProveedorController {
 
     private final ProveedorService proveedorService;
-    private final ProveedorRepository proveedorRepository;
-    
-    // LISTAR TODOS
+
     @GetMapping
     public List<Proveedor> listarTodos() {
         return proveedorService.findAll();
     }
 
-    // OBTENER POR ID
     @GetMapping("/{id}")
     public Proveedor obtenerPorId(@PathVariable Long id) {
         return proveedorService.findById(id);
     }
 
-    // CREAR PROVEEDOR (POST)
     @PostMapping
     public Proveedor crear(@RequestBody Proveedor proveedor) {
 
-        // Asignar empresa automáticamente
-        if (proveedor.isTrabajaEnArgasa()) {
-            proveedor.setEmpresa("argasa");
-        } else if (proveedor.isTrabajaEnLuga()) {
-            proveedor.setEmpresa("luga");
-        }
+        if (proveedor.isTrabajaEnArgasa()) proveedor.setEmpresa("argasa");
+        if (proveedor.isTrabajaEnLuga()) proveedor.setEmpresa("luga");
 
         return proveedorService.save(proveedor);
     }
 
-    // ACTUALIZAR PROVEEDOR
     @PutMapping("/{id}")
     public Proveedor actualizar(@PathVariable Long id, @RequestBody Proveedor proveedor) {
         proveedor.setId(id);
         return proveedorService.save(proveedor);
     }
 
-    // ELIMINAR PROVEEDOR
     @DeleteMapping("/{id}")
     public void eliminar(@PathVariable Long id) {
         proveedorService.deleteById(id);
     }
 
-    // LISTAR POR OFICIO
-    @GetMapping("/oficio/{oficio}")
-    public List<Proveedor> listarPorOficio(@PathVariable String oficio) {
-        return proveedorService.findByOficio(oficio);
-    }
-
-    // LISTAR POR EMPRESA
-    @GetMapping("/empresa/{empresa}")
-    public List<Proveedor> listarPorEmpresa(@PathVariable String empresa) {
-        return proveedorService.findByEmpresa(empresa);
-    }
-
-    // BUSCAR PROVEEDORES (sin empresa o con empresa)
+    // ⭐ FILTRO COMBINADO
     @GetMapping("/buscar")
-    public List<Proveedor> buscarProveedores(
-            @RequestParam String texto,
-            @RequestParam(required = false) String empresa) {
+    public List<Proveedor> buscar(
+            @RequestParam(required = false) String texto,
+            @RequestParam(required = false) String empresa,
+            @RequestParam(required = false) String oficio) {
 
-        if (empresa != null && !empresa.isBlank()) {
-            return proveedorRepository.buscarPorNombreYEmpresa(texto, empresa);
-        }
-
-        return proveedorRepository.buscarPorNombreOApellido(texto);
+        return proveedorService.buscar(
+                texto == null ? "" : texto,
+                empresa == null ? "" : empresa,
+                oficio == null ? "" : oficio
+        );
     }
 
-    // LISTAR SOLO ARGASA
-    @GetMapping("/argasa")
-    public List<Proveedor> getArgasa() {
-        return proveedorRepository.findByTrabajaEnArgasaTrue();
-    }
-
-    // LISTAR SOLO LUGA
-    @GetMapping("/luga")
-    public List<Proveedor> getLuga() {
-        return proveedorRepository.findByTrabajaEnLugaTrue();
-    }
 }

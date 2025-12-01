@@ -31,14 +31,21 @@ public class LlamadaController {
 
 	@PostMapping
 	public Llamada create(@RequestBody Llamada llamada) {
-		return service.save(llamada);
+	    if (llamada.getFecha() == null) {
+	        throw new RuntimeException("La fecha está llegando NULL desde Angular");
+	    }
+	    return service.save(llamada);
 	}
 
 	@PutMapping("/{id}")
 	public Llamada update(@PathVariable Long id, @RequestBody Llamada llamada) {
-		llamada.setId(id);
-		return service.save(llamada);
+	    if (llamada.getFecha() == null) {
+	        throw new RuntimeException("La fecha está llegando NULL desde Angular");
+	    }
+	    llamada.setId(id);
+	    return service.save(llamada);
 	}
+
 
 	@DeleteMapping("/{id}")
 	public void delete(@PathVariable Long id) {

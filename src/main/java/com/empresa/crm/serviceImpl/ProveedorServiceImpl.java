@@ -34,9 +34,9 @@ public class ProveedorServiceImpl implements ProveedorService {
         double pagado = 0.0;
 
         if (proveedor.getTrabajos() != null) {
-            for (var trabajo : proveedor.getTrabajos()) {
-                total += (trabajo.getImporte() != null) ? trabajo.getImporte() : 0;
-                pagado += (trabajo.getImportePagado() != null) ? trabajo.getImportePagado() : 0;
+            for (var t : proveedor.getTrabajos()) {
+                total += t.getImporte() != null ? t.getImporte() : 0;
+                pagado += t.getImportePagado() != null ? t.getImportePagado() : 0;
             }
         }
 
@@ -46,6 +46,7 @@ public class ProveedorServiceImpl implements ProveedorService {
 
         return proveedorRepository.save(proveedor);
     }
+
     @Override
     public void deleteById(Long id) {
         proveedorRepository.deleteById(id);
@@ -58,13 +59,24 @@ public class ProveedorServiceImpl implements ProveedorService {
 
     @Override
     public List<Proveedor> findByEmpresa(String empresa) {
-
         if (empresa.equalsIgnoreCase("argasa")) {
             return proveedorRepository.findByTrabajaEnArgasaTrue();
-        } else if (empresa.equalsIgnoreCase("luga")) {
+        }
+        if (empresa.equalsIgnoreCase("luga")) {
             return proveedorRepository.findByTrabajaEnLugaTrue();
         }
-
         return proveedorRepository.findAll();
     }
+
+    // ⭐ NUEVO: BÚSQUEDA AVANZADA
+    @Override
+    public List<Proveedor> buscar(String texto, String empresa, String oficio) {
+
+        return proveedorRepository.buscarAvanzado(
+                texto == null ? "" : texto,
+                empresa == null ? "" : empresa,
+                oficio == null ? "" : oficio
+        );
+    }
+
 }

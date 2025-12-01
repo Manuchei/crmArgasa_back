@@ -1,9 +1,9 @@
 package com.empresa.crm.entities;
 
 import java.time.LocalDateTime;
-
 import jakarta.persistence.*;
 import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 @Data
 @Entity
@@ -16,6 +16,7 @@ public class Llamada {
 
 	private String motivo;
 
+	@JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm")   // 👈 FORMATO CORRECTO
 	@Column(name = "fecha", nullable = false)
 	private LocalDateTime fecha;
 

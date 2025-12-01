@@ -16,4 +16,8 @@ public interface ProveedorService {
 	List<Proveedor> findByOficio(String oficio);
 
 	List<Proveedor> findByEmpresa(String empresa);
+	
+    // 🔍 Nuevo método
+    List<Proveedor> buscar(String texto, String empresa, String oficio);
 }
+
