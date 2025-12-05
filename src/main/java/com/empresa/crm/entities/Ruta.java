@@ -25,6 +25,8 @@ public class Ruta {
 	private String estado; // pendiente, en_curso, cerrada
 
 	private String observaciones;
+	
+	private String emailTransportista;
 
 	private String origen;
 	private String destino;

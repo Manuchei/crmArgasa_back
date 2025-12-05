@@ -39,6 +39,7 @@ public class SecurityConfig {
 	            .requestMatchers("/api/llamadas/**").permitAll()
 	            .requestMatchers("/api/proveedores/**").permitAll()
 	            .requestMatchers("/api/trabajos-proveedor/**").permitAll()
+	            .requestMatchers("/api/rutas/**").permitAll()
 	            .anyRequest().authenticated()
 	        )
 	        .sessionManagement(session -> session
