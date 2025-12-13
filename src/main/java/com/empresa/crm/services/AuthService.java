@@ -3,8 +3,7 @@ package com.empresa.crm.services;
 import com.empresa.crm.entities.Usuario;
 import com.empresa.crm.repositories.UsuarioRepository;
 
-import java.util.Optional;
-
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -13,10 +12,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
-public class AuthService implements UserDetailsService {
+public class AuthService {
 
 	private final UsuarioRepository usuarioRepository;
 	private final PasswordEncoder passwordEncoder;
+
+	@Autowired
+	public AuthService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
+		this.usuarioRepository = usuarioRepository;
+		this.passwordEncoder = passwordEncoder;
+	}
 
 	public Usuario registrar(Usuario usuario) {
 		usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
@@ -24,24 +29,12 @@ public class AuthService implements UserDetailsService {
 	}
 
 	public Usuario findByEmail(String email) {
-		Optional<Usuario> usuario = usuarioRepository.findByEmail(email);
-		return usuario.orElse(null);
+		return usuarioRepository.findByEmail(email).orElse(null);
 	}
 
-	public AuthService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
-		this.usuarioRepository = usuarioRepository;
-		this.passwordEncoder = passwordEncoder;
-	}
-
-	@Override
-	public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-		Usuario usuario = usuarioRepository.findByEmail(email)
-				.orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + email));
-
-		return User.builder().username(usuario.getEmail()).password(usuario.getPassword()).roles(usuario.getRol()) // ADMIN
-																													// o
-																													// USER
-				.build();
+	// Validación de contraseña encriptada
+	public boolean passwordMatches(String rawPassword, String encodedPassword) {
+		return passwordEncoder.matches(rawPassword, encodedPassword);
 	}
 
 }

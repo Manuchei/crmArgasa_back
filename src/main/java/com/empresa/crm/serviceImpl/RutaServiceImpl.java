@@ -1,25 +1,24 @@
 package com.empresa.crm.serviceImpl;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 
 import com.empresa.crm.entities.Ruta;
 import com.empresa.crm.repositories.RutaRepository;
-import com.empresa.crm.services.EmailService;
+import com.empresa.crm.scheduler.RutaScheduler;
 import com.empresa.crm.services.RutaService;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class RutaServiceImpl implements RutaService {
 
 	private final RutaRepository rutaRepository;
-	private final EmailService emailService;
-
-	public RutaServiceImpl(RutaRepository rutaRepository, EmailService emailService) {
-		this.rutaRepository = rutaRepository;
-		this.emailService = emailService;
-	}
+	private final RutaScheduler rutaScheduler;
 
 	@Override
 	public List<Ruta> findAll() {
@@ -34,41 +33,24 @@ public class RutaServiceImpl implements RutaService {
 	@Override
 	public Ruta save(Ruta ruta) {
 
+		LocalDate hoy = LocalDate.now();
+		LocalTime ahora = LocalTime.now();
+
 		boolean esNueva = (ruta.getId() == null);
 
-		Ruta rutaGuardada = rutaRepository.save(ruta);
+		Ruta guardada = rutaRepository.save(ruta);
 
-		// CORREO NUEVA RUTA
-		if (esNueva) {
-			String asunto = "Nueva ruta asignada";
-			String msg = "Hola " + ruta.getNombreTransportista() + "\n\nSe te ha asignado una nueva ruta."
-					+ "\nOrigen: " + ruta.getOrigen() + "\nDestino: " + ruta.getDestino() + "\nFecha: "
-					+ ruta.getFecha() + "\nObservaciones: " + ruta.getObservaciones();
+		boolean rutaEsHoy = ruta.getFecha() != null && ruta.getFecha().isEqual(hoy);
+		boolean despuesDeLas8 = ahora.isAfter(LocalTime.of(8, 0));
 
-			emailService.enviarCorreo(
-				    ruta.getEmailTransportista(),   // ← AHORA USAMOS EL CORREO REAL
-				    asunto,
-				    msg
-				);
-		}
-		// CORREO ACTUALIZACIÓN
-		else {
-			String asunto = "Actualización de ruta";
-			String msg = "Hola " + ruta.getNombreTransportista() + "\n\nLa ruta asignada ha sido modificada."
-					+ "\nOrigen: " + ruta.getOrigen() + "\nDestino: " + ruta.getDestino() + "\nNueva fecha: "
-					+ ruta.getFecha() + "\nEstado: " + ruta.getEstado() + "\nObservaciones: " + ruta.getObservaciones();
-
-			emailService.enviarCorreo(
-				    ruta.getEmailTransportista(),   // ← AHORA USAMOS EL CORREO REAL
-				    asunto,
-				    msg
-				);
+		// 🔄 Si se crea o modifica ruta de hoy después de las 08:00 → enviar
+		// actualización
+		if (rutaEsHoy && despuesDeLas8) {
+			rutaScheduler.enviarActualizacionHoy(ruta.getNombreTransportista());
 		}
 
-		return rutaGuardada;
+		return guardada;
 	}
-
-
 
 	@Override
 	public void deleteById(Long id) {
@@ -93,10 +75,22 @@ public class RutaServiceImpl implements RutaService {
 	@Override
 	public Ruta cerrarRuta(Long id) {
 		Ruta ruta = findById(id);
+
 		if (ruta != null && !"cerrada".equalsIgnoreCase(ruta.getEstado())) {
+
 			ruta.setEstado("cerrada");
 			rutaRepository.save(ruta);
+
+			// Si es hoy y son más de las 8 → actualizamos correo
+			LocalDate hoy = LocalDate.now();
+			LocalTime ahora = LocalTime.now();
+
+			if (ruta.getFecha() != null && ruta.getFecha().isEqual(hoy) && ahora.isAfter(LocalTime.of(8, 0))) {
+
+				rutaScheduler.enviarActualizacionHoy(ruta.getNombreTransportista());
+			}
 		}
+
 		return ruta;
 	}
 }
