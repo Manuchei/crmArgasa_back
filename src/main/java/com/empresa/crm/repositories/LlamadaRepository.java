@@ -11,4 +11,5 @@ public interface LlamadaRepository extends JpaRepository<Llamada, Long> {
 	List<Llamada> findByFechaBetween(LocalDateTime inicio, LocalDateTime fin);
     List<Llamada> findByEstado(String estado);
 
+
 }

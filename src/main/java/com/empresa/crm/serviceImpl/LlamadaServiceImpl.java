@@ -1,5 +1,7 @@
 package com.empresa.crm.serviceImpl;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -40,26 +42,35 @@ public class LlamadaServiceImpl implements LlamadaService {
         repo.deleteById(id);
     }
 
-    // FULLCALENDAR READY
+    // ✅ Llamadas por día
     @Override
-    public List<EventoCalendarioDTO> getEventosCalendario() {
-
-        DateTimeFormatter f = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-
-        return repo.findAll().stream().map(l -> {
-            EventoCalendarioDTO dto = new EventoCalendarioDTO();
-            dto.setId(l.getId());
-            dto.setTitle(l.getMotivo());
-            
-            String fechaFormateada = l.getFecha().format(f);
-
-            dto.setFecha(fechaFormateada); // si lo necesitas
-            dto.setStart(fechaFormateada); // FULLCALENDAR NECESITA ESTE CAMPO
-
-            dto.setEstado(l.getEstado());
-            dto.setObservaciones(l.getObservaciones());
-            return dto;
-        }).collect(Collectors.toList());
+    public List<Llamada> findByFecha(LocalDate fecha) {
+        LocalDateTime inicio = fecha.atStartOfDay();
+        LocalDateTime fin = fecha.atTime(23, 59, 59);
+        return repo.findByFechaBetween(inicio, fin);
     }
 
+    // ✅ Eventos FullCalendar / Material Calendar
+    @Override
+    public List<EventoCalendarioDTO> getEventosCalendario() {
+        DateTimeFormatter f = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
+
+        return repo.findAll().stream()
+            .filter(l -> l.getFecha() != null) // ✅ evita NPE
+            .map(l -> {
+                EventoCalendarioDTO dto = new EventoCalendarioDTO();
+                dto.setId(l.getId());
+                dto.setTitle(l.getMotivo());
+
+                String fechaFormateada = l.getFecha().format(f);
+
+                dto.setStart(fechaFormateada);
+                dto.setFecha(fechaFormateada); // opcional
+
+                dto.setEstado(l.getEstado());
+                dto.setObservaciones(l.getObservaciones());
+                return dto;
+            })
+            .collect(Collectors.toList());
+    }
 }

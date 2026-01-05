@@ -4,12 +4,12 @@ import lombok.Data;
 
 @Data
 public class EventoCalendarioDTO {
+    private Long id;
+    private String title;
+    private String start; // FullCalendar
+    private String estado;
+    private String observaciones;
 
-	private Long id;
-	private String title; // motivo
-	private String fecha; // formato yyyy-MM-dd'T'HH:mm:ss
-	private String estado;
-	private String observaciones;
-	private String start;
-
+    // opcional si quieres mantenerlo (pero ya no hace falta)
+    private String fecha;
 }

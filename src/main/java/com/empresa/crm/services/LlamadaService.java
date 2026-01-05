@@ -1,19 +1,19 @@
 package com.empresa.crm.services;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 import com.empresa.crm.dto.EventoCalendarioDTO;
 import com.empresa.crm.entities.Llamada;
 
 public interface LlamadaService {
-	List<Llamada> findAll();
+    List<Llamada> findAll();
+    Llamada findById(Long id);
+    Llamada save(Llamada llamada);
+    void deleteById(Long id);
 
-	Llamada findById(Long id);
+    List<EventoCalendarioDTO> getEventosCalendario();
 
-	Llamada save(Llamada llamada);
-
-	void deleteById(Long id);
-
-	List<EventoCalendarioDTO> getEventosCalendario();
+    // ✅ NUEVO: llamadas de un día
+    List<Llamada> findByFecha(LocalDate fecha);
 }
