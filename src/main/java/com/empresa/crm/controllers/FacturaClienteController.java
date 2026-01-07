@@ -2,6 +2,7 @@ package com.empresa.crm.controllers;
 
 import java.util.List;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,8 +36,14 @@ public class FacturaClienteController {
 	}
 
 	@PostMapping("/generar/{clienteId}/{empresa}")
-	public FacturaCliente generar(@PathVariable Long clienteId, @PathVariable String empresa) {
-		return facturaService.generarFactura(clienteId, empresa);
+	public ResponseEntity<?> generar(@PathVariable Long clienteId, @PathVariable String empresa) {
+		FacturaCliente factura = facturaService.generarFactura(clienteId, empresa);
+
+		if (factura == null) {
+			return ResponseEntity.badRequest().body("No hay servicios sin factura para este cliente.");
+		}
+
+		return ResponseEntity.ok(factura);
 	}
 
 	@PutMapping("/pagar/{facturaId}")

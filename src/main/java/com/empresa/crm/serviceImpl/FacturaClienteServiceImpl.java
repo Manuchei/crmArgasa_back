@@ -1,4 +1,4 @@
-package com.empresa.crm.services;
+package com.empresa.crm.serviceImpl;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -12,6 +12,7 @@ import com.empresa.crm.entities.ServicioCliente;
 import com.empresa.crm.repositories.ClienteRepository;
 import com.empresa.crm.repositories.FacturaClienteRepository;
 import com.empresa.crm.repositories.ServicioClienteRepository;
+import com.empresa.crm.services.FacturaClienteService;
 
 @Service
 public class FacturaClienteServiceImpl implements FacturaClienteService {
@@ -39,34 +40,36 @@ public class FacturaClienteServiceImpl implements FacturaClienteService {
 
 	@Override
 	public FacturaCliente generarFactura(Long clienteId, String empresa) {
-		Cliente cliente = clienteRepo.findById(clienteId).orElse(null);
-		if (cliente == null)
-			return null;
+	    Cliente cliente = clienteRepo.findById(clienteId).orElse(null);
+	    if (cliente == null) return null;
 
-		// obtener servicios pendientes sin factura
-		List<ServicioCliente> serviciosPendientes = servicioRepo.findByClienteId(clienteId).stream()
-				.filter(s -> !s.isPagado() && s.getFactura() == null).collect(Collectors.toList());
+	    // ✅ servicios SIN factura (da igual si están pagados o no)
+	    List<ServicioCliente> serviciosSinFactura = servicioRepo.findByClienteId(clienteId).stream()
+	            .filter(s -> s.getFactura() == null)
+	            .collect(Collectors.toList());
 
-		if (serviciosPendientes.isEmpty())
-			return null;
+	    if (serviciosSinFactura.isEmpty()) return null;
 
-		double total = serviciosPendientes.stream().mapToDouble(ServicioCliente::getImporte).sum();
+	    double total = serviciosSinFactura.stream()
+	            .mapToDouble(s -> s.getImporte() != null ? s.getImporte() : 0)
+	            .sum();
 
-		FacturaCliente factura = new FacturaCliente();
-		factura.setCliente(cliente);
-		factura.setEmpresa(empresa);
-		factura.setFechaEmision(LocalDate.now());
-		factura.setPagada(false);
-		factura.setTotalImporte(total);
-		factura = facturaRepo.save(factura);
+	    FacturaCliente factura = new FacturaCliente();
+	    factura.setCliente(cliente);
+	    factura.setEmpresa(empresa);
+	    factura.setFechaEmision(LocalDate.now());
+	    factura.setPagada(false);
+	    factura.setTotalImporte(total);
 
-		// vincular servicios con la factura
-		for (ServicioCliente s : serviciosPendientes) {
-			s.setFactura(factura);
-			servicioRepo.save(s);
-		}
+	    factura = facturaRepo.save(factura);
 
-		return factura;
+	    // ✅ vincular servicios con la factura
+	    for (ServicioCliente s : serviciosSinFactura) {
+	        s.setFactura(factura);
+	        servicioRepo.save(s);
+	    }
+
+	    return factura;
 	}
 
 	@Override
