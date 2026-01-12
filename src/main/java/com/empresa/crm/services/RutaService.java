@@ -3,6 +3,7 @@ package com.empresa.crm.services;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.empresa.crm.dto.RutaDiaRequestDTO;
 import com.empresa.crm.entities.Ruta;
 
 public interface RutaService {
@@ -22,4 +23,6 @@ public interface RutaService {
 	List<Ruta> findByFecha(LocalDate fecha);
 
 	Ruta cerrarRuta(Long id);
+	
+	List <Ruta> crearRutasDeUnDia(RutaDiaRequestDTO request);
 }

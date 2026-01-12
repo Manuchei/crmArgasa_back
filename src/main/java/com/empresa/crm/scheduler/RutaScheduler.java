@@ -82,9 +82,14 @@ public class RutaScheduler {
 				.append("</thead><tbody>");
 
 		for (Ruta r : rutas) {
-			sb.append("<tr>").append("<td>").append(ns(r.getOrigen())).append("</td>").append("<td>")
-					.append(ns(r.getDestino())).append("</td>").append("<td>").append(ns(r.getEstado())).append("</td>")
-					.append("<td>").append(ns(r.getObservaciones())).append("</td>").append("</tr>");
+			sb.append("<tr>")
+			  .append("<td>").append(ns(r.getOrigen())).append("</td>")
+			  .append("<td>").append(ns(r.getDestino())).append("</td>")
+			  .append("<td>").append(ns(r.getTarea())).append("</td>")
+			  .append("<td>").append(ns(r.getEstado())).append("</td>")
+			  .append("<td>").append(ns(r.getObservaciones())).append("</td>")
+			  .append("</tr>");
+
 		}
 
 		sb.append("</tbody></table>");
@@ -98,4 +103,19 @@ public class RutaScheduler {
 	private String ns(Object o) {
 		return o == null ? "" : o.toString();
 	}
+	
+	public void enviarRutasDeFecha(String transportista, LocalDate fecha) {
+	    List<Ruta> rutas = rutaRepository.findByFechaAndNombreTransportistaIgnoreCase(fecha, transportista);
+
+	    if (rutas.isEmpty()) return;
+
+	    String email = rutas.get(0).getEmailTransportista();
+	    if (email == null || email.isBlank()) return;
+
+	    String asunto = "Rutas del día " + fecha + " - " + transportista;
+	    String html = construirHtmlRutas(fecha, transportista, rutas, false);
+
+	    emailService.enviarCorreoHtml(email, asunto, html);
+	}
+
 }

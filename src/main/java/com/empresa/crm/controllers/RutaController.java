@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.empresa.crm.dto.RutaDiaRequestDTO;
 import com.empresa.crm.entities.Ruta;
 import com.empresa.crm.services.RutaService;
 
@@ -73,4 +74,10 @@ public class RutaController {
 	public Ruta cerrarRuta(@PathVariable Long id) {
 		return rutaService.cerrarRuta(id);
 	}
+	
+	@PostMapping("/dia")
+	public List<Ruta> crearRutasDia(@RequestBody RutaDiaRequestDTO request) {
+	    return rutaService.crearRutasDeUnDia(request);
+	}
+
 }
