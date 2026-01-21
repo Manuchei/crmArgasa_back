@@ -12,16 +12,19 @@ import com.empresa.crm.entities.Cliente;
 @Repository
 public interface ClienteRepository extends JpaRepository<Cliente, Long> {
 
-    // 🔹 Buscar por nombre o apellido (insensible a mayúsculas)
+    // ✅ Buscar por nombre/apellidos, nombre comercial o CIF/DNI (insensible a mayúsculas)
     @Query("SELECT c FROM Cliente c " +
-           "WHERE LOWER(c.nombre) LIKE LOWER(CONCAT('%', :texto, '%')) " +
-           "OR LOWER(c.apellido) LIKE LOWER(CONCAT('%', :texto, '%'))")
-    List<Cliente> buscarPorNombreOApellido(@Param("texto") String texto);
+           "WHERE LOWER(c.nombreApellidos) LIKE LOWER(CONCAT('%', :texto, '%')) " +
+           "OR LOWER(c.nombreComercial) LIKE LOWER(CONCAT('%', :texto, '%')) " +
+           "OR LOWER(c.cifDni) LIKE LOWER(CONCAT('%', :texto, '%'))")
+    List<Cliente> buscarPorTexto(@Param("texto") String texto);
 
-    // 🔹 Buscar también filtrando por empresa
+    // ✅ Buscar por texto y filtrando por nombre comercial
     @Query("SELECT c FROM Cliente c " +
-           "WHERE (LOWER(c.nombre) LIKE LOWER(CONCAT('%', :texto, '%')) " +
-           "OR LOWER(c.apellido) LIKE LOWER(CONCAT('%', :texto, '%'))) " +
-           "AND LOWER(c.empresa) = LOWER(:empresa)")
-    List<Cliente> buscarPorNombreYEmpresa(@Param("texto") String texto, @Param("empresa") String empresa);
+           "WHERE (LOWER(c.nombreApellidos) LIKE LOWER(CONCAT('%', :texto, '%')) " +
+           "OR LOWER(c.nombreComercial) LIKE LOWER(CONCAT('%', :texto, '%')) " +
+           "OR LOWER(c.cifDni) LIKE LOWER(CONCAT('%', :texto, '%'))) " +
+           "AND LOWER(c.nombreComercial) = LOWER(:nombreComercial)")
+    List<Cliente> buscarPorTextoYNombreComercial(@Param("texto") String texto,
+                                                 @Param("nombreComercial") String nombreComercial);
 }

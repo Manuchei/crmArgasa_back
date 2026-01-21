@@ -2,8 +2,10 @@ package com.empresa.crm.entities;
 
 import java.util.ArrayList;
 import java.util.List;
+
 import jakarta.persistence.*;
 import lombok.Data;
+
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 @Data
@@ -15,10 +17,18 @@ public class Cliente {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String nombre;
-    private String apellido;
-    private String empresa;
-    private String telefono;
+    // ✅ Campos nuevos solicitados
+    private String nombreApellidos;     // "Nombre y apellidos"
+    private String nombreComercial;     // "Nombre comercial"
+    private String direccion;           // "Direccion"
+    private String codigoPostal;        // "Codigo Postal"
+    private String poblacion;           // "Poblacion"
+    private String provincia;           // "Provincia"
+    private String telefono;            // "Numero telefono"
+    private String movil;               // "Numero movil"
+    private String cifDni;              // "CIF o DNI"
+
+    // Campo que ya estaba en tu entidad
     private String email;
 
     private Double totalImporte = 0.0;

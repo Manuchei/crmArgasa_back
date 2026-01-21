@@ -2,6 +2,7 @@ package com.empresa.crm.controllers;
 
 import java.util.List;
 
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import com.empresa.crm.entities.Cliente;
@@ -32,7 +33,7 @@ public class ClienteController {
 		return clienteService.findById(id);
 	}
 
-	@PostMapping
+	@PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	public Cliente crearCliente(@RequestBody Cliente cliente) {
 
 		if (cliente.getTrabajos() != null) {
@@ -54,7 +55,7 @@ public class ClienteController {
 		return clienteService.save(cliente);
 	}
 
-	@PutMapping("/{id}")
+	@PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	public Cliente actualizarCliente(@PathVariable Long id, @RequestBody Cliente cliente) {
 		cliente.setId(id);
 		return clienteService.save(cliente);
@@ -68,14 +69,13 @@ public class ClienteController {
 	@GetMapping("/buscar")
 	public List<Cliente> buscarClientes(@RequestParam String texto, @RequestParam(required = false) String empresa) {
 		if (empresa != null && !empresa.isBlank()) {
-			return clienteRepository.buscarPorNombreYEmpresa(texto, empresa);
+			return clienteRepository.buscarPorTextoYNombreComercial(texto, empresa);
 		} else {
-			return clienteRepository.buscarPorNombreOApellido(texto);
+			return clienteRepository.buscarPorTexto(texto);
 		}
 	}
 
-	// ✅ NUEVO: Añadir trabajo a cliente existente
-	@PostMapping("/{id}/trabajos")
+	@PostMapping(value = "/{id}/trabajos", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	public Cliente agregarTrabajo(@PathVariable Long id, @RequestBody Trabajo trabajo) {
 		Cliente cliente = clienteService.findById(id);
 

@@ -32,14 +32,14 @@ public class BusquedaGlobalController {
 		// --- CLIENTES ---
 		List<Cliente> clientes;
 		if (empresa != null && !empresa.isBlank()) {
-			clientes = clienteRepository.buscarPorNombreYEmpresa(texto, empresa);
+			clientes = clienteRepository.buscarPorTextoYNombreComercial(texto, empresa);
 		} else {
-			clientes = clienteRepository.buscarPorNombreOApellido(texto);
+			clientes = clienteRepository.buscarPorTexto(texto);
 		}
 
 		for (Cliente c : clientes) {
-			resultados.add(new ResultadoGlobalDTO(c.getId(),
-					c.getNombre() + (c.getApellido() != null ? " " + c.getApellido() : ""), c.getEmpresa(), "Cliente"));
+			resultados
+					.add(new ResultadoGlobalDTO(c.getId(), c.getNombreApellidos(), c.getNombreComercial(), "Cliente"));
 		}
 
 		// --- PROVEEDORES ---
