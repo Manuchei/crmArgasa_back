@@ -50,7 +50,7 @@ public class InformeMensualServiceImpl implements InformeMensualService {
 				.mapToDouble(FacturaProveedor::getTotalImporte).sum();
 		double totalProveedoresPendiente = totalProveedores - totalProveedoresPagado;
 
-		return new ResumenMensualDTO(empresa, yearMonth.toString(), facturasClientes.size(), totalClientes,
+		return new ResumenMensualDTO(/*empresa,*/ yearMonth.toString(), facturasClientes.size(), totalClientes,
 				totalClientesPagado, totalClientesPendiente, facturasProveedores.size(), totalProveedores,
 				totalProveedoresPagado, totalProveedoresPendiente);
 	}

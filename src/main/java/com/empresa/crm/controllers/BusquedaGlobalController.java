@@ -5,7 +5,9 @@ import com.empresa.crm.entities.Cliente;
 import com.empresa.crm.entities.Proveedor;
 import com.empresa.crm.repositories.ClienteRepository;
 import com.empresa.crm.repositories.ProveedorRepository;
-import org.springframework.web.bind.annotation.*;
+import com.empresa.crm.tenant.TenantContext;
+
+/*import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,53 +17,46 @@ import java.util.List;
 @CrossOrigin(origins = "http://localhost:4200")
 public class BusquedaGlobalController {
 
-	private final ClienteRepository clienteRepository;
-	private final ProveedorRepository proveedorRepository;
+    private final ClienteRepository clienteRepository;
+    private final ProveedorRepository proveedorRepository;
 
-	public BusquedaGlobalController(ClienteRepository clienteRepository, ProveedorRepository proveedorRepository) {
-		this.clienteRepository = clienteRepository;
-		this.proveedorRepository = proveedorRepository;
-	}
+    public BusquedaGlobalController(ClienteRepository clienteRepository,
+                                    ProveedorRepository proveedorRepository) {
+        this.clienteRepository = clienteRepository;
+        this.proveedorRepository = proveedorRepository;
+    }
 
-	@GetMapping("/global")
-	public List<ResultadoGlobalDTO> buscarGlobal(@RequestParam String texto,
-			@RequestParam(required = false) String empresa) {
+    @GetMapping("/global")
+    public List<ResultadoGlobalDTO> buscarGlobal(@RequestParam String texto) {
 
-		List<ResultadoGlobalDTO> resultados = new ArrayList<>();
+        String empresa = TenantContext.get();
+        List<ResultadoGlobalDTO> resultados = new ArrayList<>();
 
-		// --- CLIENTES ---
-		List<Cliente> clientes;
-		if (empresa != null && !empresa.isBlank()) {
-			clientes = clienteRepository.buscarPorTextoYNombreComercial(texto, empresa);
-		} else {
-			clientes = clienteRepository.buscarPorTexto(texto);
-		}
+        // ========= CLIENTES =========
+        List<Cliente> clientes = clienteRepository.buscarPorTexto(texto, empresa);
 
-		for (Cliente c : clientes) {
-			resultados
-					.add(new ResultadoGlobalDTO(c.getId(), c.getNombreApellidos(), c.getNombreComercial(), "Cliente"));
-		}
+        for (Cliente c : clientes) {
+            resultados.add(new ResultadoGlobalDTO(
+                    c.getId(),
+                    c.getNombreApellidos(),
+                    c.getNombreComercial(),
+                    "cliente"
+            ));
+        }
 
-		// --- PROVEEDORES ---
-		List<Proveedor> proveedores;
-		if (empresa != null && !empresa.isBlank()) {
-			proveedores = proveedorRepository.buscarPorNombreYEmpresa(texto, empresa);
-		} else {
-			proveedores = proveedorRepository.buscarPorNombreOApellido(texto);
-		}
+        // ========= PROVEEDORES =========
+        List<Proveedor> proveedores = proveedorRepository.buscarPorNombreYEmpresa(texto, empresa);
 
-		for (Proveedor p : proveedores) {
-			String empresaProveedor = "";
-			if (p.isTrabajaEnArgasa() && p.isTrabajaEnLuga())
-				empresaProveedor = "Argasa y Luga";
-			else if (p.isTrabajaEnArgasa())
-				empresaProveedor = "Argasa";
-			else if (p.isTrabajaEnLuga())
-				empresaProveedor = "Luga";
+        for (Proveedor p : proveedores) {
+            resultados.add(new ResultadoGlobalDTO(
+                    p.getId(),
+                    p.getNombre() + " " + p.getApellido(),
+                    p.getOficio(),
+                    "proveedor"
+            ));
+        }
 
-			resultados.add(new ResultadoGlobalDTO(p.getId(), p.getNombre(), empresaProveedor, "Proveedor"));
-		}
-
-		return resultados;
-	}
+        return resultados;
+    }
 }
+*/

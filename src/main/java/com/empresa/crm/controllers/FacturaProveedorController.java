@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.empresa.crm.entities.FacturaProveedor;
 import com.empresa.crm.services.FacturaProveedorService;
+import com.empresa.crm.tenant.TenantContext;
 
 @RestController
 @RequestMapping("/api/facturas")
@@ -34,10 +35,15 @@ public class FacturaProveedorController {
 		return facturaService.findByProveedor(proveedorId);
 	}
 
-	@PostMapping("/generar/{proveedorId}/{empresa}")
-	public FacturaProveedor generar(@PathVariable Long proveedorId, @PathVariable String empresa) {
-		return facturaService.generarFactura(proveedorId, empresa);
+	@PostMapping("/generar/{proveedorId}")
+	public FacturaProveedor generar(@PathVariable Long proveedorId) {
+	    String empresa = TenantContext.get();
+	    if (empresa == null || empresa.isBlank()) {
+	        throw new RuntimeException("Empresa no seleccionada (TenantContext vacío).");
+	    }
+	    return facturaService.generarFactura(proveedorId, empresa);
 	}
+
 
 	@PutMapping("/pagar/{facturaId}")
 	public FacturaProveedor pagar(@PathVariable Long facturaId) {

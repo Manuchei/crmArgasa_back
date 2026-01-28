@@ -15,6 +15,9 @@ public class Llamada {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    
+    @Column(name = "empresa", nullable = false, length = 20)
+    private String empresa;
 
     private String motivo;
 

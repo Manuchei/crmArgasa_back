@@ -24,5 +24,14 @@ public interface RutaRepository extends JpaRepository<Ruta, Long> {
 	@Query("select distinct r.nombreTransportista from Ruta r where r.fecha = :fecha")
 	List<String> findTransportistasByFecha(@Param("fecha") LocalDate fecha);
 
-	List<Ruta> findByFechaAndNombreTransportistaContainingIgnoreCase(LocalDate fecha, String nombre);
+	List<Ruta> findByFechaAndNombreTransportistaContainingIgnoreCase(LocalDate fecha, String nombre);List<Ruta> findByEmpresa(String empresa);
+
+List<Ruta> findByEmpresaAndEstado(String empresa, String estado);
+
+List<Ruta> findByEmpresaAndNombreTransportistaContainingIgnoreCase(String empresa, String nombre);
+
+List<Ruta> findByEmpresaAndFecha(String empresa, LocalDate fecha);
+
+List<Ruta> findByEmpresaAndFechaAndNombreTransportistaContainingIgnoreCase(String empresa, LocalDate fecha, String nombre);
+
 }

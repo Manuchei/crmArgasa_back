@@ -22,5 +22,8 @@ public class Transportista {
 
 	@Column(nullable = false)
 	private String email;
+	
+	@Column(name = "empresa", nullable = false, length = 20)
+	private String empresa;
 
 }

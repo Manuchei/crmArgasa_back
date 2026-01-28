@@ -13,6 +13,9 @@ public class LineaAlbaranCliente {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
+	
+	@Column(name = "empresa", nullable = false, length = 20)
+	private String empresa;
 
 	// Opcional (como “Artículo” en la imagen)
 	private String codigo;
@@ -33,7 +36,7 @@ public class LineaAlbaranCliente {
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "albaran_id")
-	@JsonBackReference
+	@JsonBackReference("albaran-lineas")
 	private AlbaranCliente albaran;
 
 	public void recalcular() {

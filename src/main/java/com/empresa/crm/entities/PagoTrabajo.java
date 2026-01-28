@@ -15,6 +15,9 @@ public class PagoTrabajo {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
+	
+	@Column(name = "empresa", nullable = false, length = 20)
+	private String empresa;
 
 	// Para listar pagos por cliente sin liarnos
 	@ManyToOne(fetch = FetchType.LAZY)

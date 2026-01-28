@@ -45,28 +45,29 @@ public class AlbaranClienteService {
     }
 
     @Transactional
-    public AlbaranCliente crearDesdeCliente(Long clienteId, String empresa) {
+    public AlbaranCliente crearDesdeCliente(Long clienteId) {
 
         Cliente c = clienteRepo.findById(clienteId)
                 .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
 
         AlbaranCliente a = new AlbaranCliente();
         a.setCliente(c);
-        a.setEmpresa(empresa);
+
+        // ✅ IMPORTANTE: empresa = TENANT del cliente (NO Argasa/Luga)
+        a.setEmpresa(c.getEmpresa());
 
         // ===== SNAPSHOT CLIENTE =====
         a.setNombreApellidos(c.getNombreApellidos());
-        a.setNombreComercial(c.getNombreComercial());
-
         a.setDireccion(c.getDireccion());
         a.setCodigoPostal(c.getCodigoPostal());
         a.setPoblacion(c.getPoblacion());
         a.setProvincia(c.getProvincia());
-
         a.setTelefono(c.getTelefono());
         a.setMovil(c.getMovil());
         a.setCifDni(c.getCifDni());
         a.setEmail(c.getEmail());
+        a.setEmpresa(c.getEmpresa()); // esto NO puede ser null
+
 
         // ===== COPIAR TRABAJOS -> LÍNEAS =====
         List<Trabajo> trabajos = trabajoRepo.findByClienteId(clienteId);
@@ -79,32 +80,28 @@ public class AlbaranClienteService {
                 if (desc.isBlank()) continue;
 
                 double importe = safe(t.getImporte());
-                double pagado = safe(t.getImportePagado());
-
-                // 🔴 Versión pendiente (NO borrar)
-                // double pendiente = importe - pagado;
-                // if (pendiente <= 0) continue;
-
-                // ✅ Versión ACTIVA: copiar IMPORTE TOTAL
                 if (importe <= 0) continue;
 
                 LineaAlbaranCliente l = new LineaAlbaranCliente();
+                l.setEmpresa(a.getEmpresa());          // ✅ IMPORTANTE (evita el 500)
                 l.setCodigo(null);
                 l.setDescripcion(desc);
                 l.setUnidades(1.0);
-                l.setPrecio(importe);   // ✅ TOTAL, no restamos lo pagado
+                l.setPrecio(importe);
                 l.setDtoPct(0.0);
 
                 l.setAlbaran(a);
                 l.recalcular();
 
                 a.getLineas().add(l);
-            }
+
+        }
         }
 
         a.recalcularTotales();
         return albaranRepo.save(a);
     }
+
 
 
     private double safe(Double v) {
@@ -113,13 +110,20 @@ public class AlbaranClienteService {
 
     @Transactional
     public AlbaranCliente save(AlbaranCliente albaran) {
-        if (albaran.getLineas() != null) {
-            for (LineaAlbaranCliente l : albaran.getLineas()) {
-                if (l == null) continue;
-                l.setAlbaran(albaran);
-                l.recalcular();
-            }
-        }
+    	if (albaran.getLineas() != null) {
+    		  for (LineaAlbaranCliente l : albaran.getLineas()) {
+    		    if (l == null) continue;
+
+    		    l.setAlbaran(albaran);
+
+    		    if (l.getEmpresa() == null || l.getEmpresa().isBlank()) {
+    		      l.setEmpresa(albaran.getEmpresa());   // ✅
+    		    }
+
+    		    l.recalcular();
+    		  }
+    		}
+
         albaran.recalcularTotales();
         return albaranRepo.save(albaran);
     }
@@ -136,6 +140,11 @@ public class AlbaranClienteService {
         if (linea == null) throw new RuntimeException("Línea inválida");
 
         linea.setAlbaran(a);
+
+        if (linea.getEmpresa() == null || linea.getEmpresa().isBlank()) {
+          linea.setEmpresa(a.getEmpresa());   // ✅
+        }
+
         linea.recalcular();
 
         a.getLineas().add(linea);

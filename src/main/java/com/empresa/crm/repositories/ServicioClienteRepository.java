@@ -11,4 +11,11 @@ import com.empresa.crm.entities.ServicioCliente;
 public interface ServicioClienteRepository extends JpaRepository<ServicioCliente, Long> {
     List<ServicioCliente> findByClienteId(Long clienteId);
     List<ServicioCliente> findByPagado(boolean pagado);
+
+    // ✅ Multi-tenant correcto
+    List<ServicioCliente> findByClienteIdAndEmpresa(Long clienteId, String empresa);
+    List<ServicioCliente> findByClienteIdAndEmpresaIsNull(Long clienteId);
+
+    
 }
+

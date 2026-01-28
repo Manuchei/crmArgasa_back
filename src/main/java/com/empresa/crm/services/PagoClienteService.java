@@ -18,8 +18,7 @@ public class PagoClienteService {
     private final PagoClienteRepository pagoRepo;
     private final ClienteRepository clienteRepo;
 
-    public PagoClienteService(PagoClienteRepository pagoRepo,
-                              ClienteRepository clienteRepo) {
+    public PagoClienteService(PagoClienteRepository pagoRepo, ClienteRepository clienteRepo) {
         this.pagoRepo = pagoRepo;
         this.clienteRepo = clienteRepo;
     }
@@ -30,21 +29,26 @@ public class PagoClienteService {
 
     @Transactional
     public PagoCliente crearPago(Long clienteId, PagoClienteCreateRequest req) {
-        Cliente c = clienteRepo.findById(clienteId).orElse(null);
-        if (c == null) throw new RuntimeException("Cliente no encontrado");
+        Cliente c = clienteRepo.findById(clienteId)
+                .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
 
         double importe = safe(req.getImporte());
         if (importe <= 0) throw new RuntimeException("Importe inválido");
 
+        String metodo = trim(req.getMetodo());
+        if (metodo.isEmpty()) throw new RuntimeException("Método inválido");
+
         PagoCliente p = new PagoCliente();
         p.setCliente(c);
+
+        // ✅ CLAVE: evitar el error NOT NULL (PagoCliente.empresa)
+        p.setEmpresa(c.getEmpresa());
+
         p.setFecha(req.getFecha() != null ? req.getFecha() : LocalDate.now());
         p.setImporte(importe);
-        p.setMetodo(req.getMetodo());
-        p.setObservaciones(req.getObservaciones());
+        p.setMetodo(metodo);
+        p.setObservaciones(nullIfBlank(req.getObservaciones()));
 
-        // ✅ SOLO guardo el pago en historial
-        // ❌ NO recalculo ni reparto pagos en trabajos
         return pagoRepo.save(p);
     }
 
@@ -53,14 +57,24 @@ public class PagoClienteService {
         PagoCliente p = pagoRepo.findById(pagoId).orElse(null);
         if (p == null) throw new RuntimeException("Pago no encontrado");
 
-        // ✅ SOLO borro el pago del historial
-        // ❌ NO recalculo ni reparto pagos en trabajos
         pagoRepo.deleteById(pagoId);
     }
 
+    // ---------- helpers ----------
     private double safe(Double v) {
         return v != null ? v : 0.0;
     }
+
+    private String trim(String s) {
+        return s == null ? "" : s.trim();
+    }
+
+    private String nullIfBlank(String s) {
+        s = trim(s);
+        return s.isEmpty() ? null : s;
+    }
+
+}
 
     // -----------------------------------------------------------------
     // ✅ VERSIÓN ANTIGUA (NO BORRAR) - Reparte pagos entre trabajos
@@ -123,4 +137,4 @@ public class PagoClienteService {
 //
 //        trabajoRepo.saveAll(trabajos);
 //    }
-}
+

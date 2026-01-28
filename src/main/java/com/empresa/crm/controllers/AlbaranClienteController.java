@@ -44,21 +44,22 @@ public class AlbaranClienteController {
 
 	// ✅ Crear albarán desde cliente (endpoint que tu Angular usa)
 	@PostMapping("/clientes/{clienteId}")
-	public AlbaranCliente crearDesdeClientePath(@PathVariable Long clienteId, @RequestParam String empresa) {
-
-		return service.crearDesdeCliente(clienteId, empresa);
+	public AlbaranCliente crearDesdeClientePath(@PathVariable Long clienteId) {
+	    return service.crearDesdeCliente(clienteId);
 	}
+
 
 	// (opcional) Puedes borrar este si ya no lo usas
-	@PostMapping("/crear-desde-cliente")
+	/*@PostMapping("/crear-desde-cliente")
 	public AlbaranCliente crearDesdeCliente(@RequestParam Long clienteId, @RequestParam String empresa) {
-		return service.crearDesdeCliente(clienteId, empresa);
+		return service.crearDesdeCliente(clienteId);
 	}
 
-	@PostMapping
-	public AlbaranCliente crear(@RequestBody AlbaranCliente albaran) {
-		return service.save(albaran);
-	}
+	@PostMapping("/clientes/{clienteId}")
+	public AlbaranCliente crearDesdeClientePath(@PathVariable Long clienteId) {
+	    return service.crearDesdeCliente(clienteId);
+	}*/
+
 
 	@PutMapping("/{id}")
 	public AlbaranCliente actualizar(@PathVariable Long id, @RequestBody AlbaranCliente albaran) {

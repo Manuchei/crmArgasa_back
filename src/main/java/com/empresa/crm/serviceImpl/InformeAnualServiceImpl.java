@@ -58,7 +58,7 @@ public class InformeAnualServiceImpl implements InformeAnualService {
 					totalProveedores, beneficio));
 		}
 
-		return new ResumenAnualDTO(empresa, year, beneficioTotal, listaMensual);
+		return new ResumenAnualDTO(/*empresa,*/ year, beneficioTotal, listaMensual);
 
 	}
 }

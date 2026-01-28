@@ -10,6 +10,5 @@ import lombok.NoArgsConstructor;
 public class ResultadoGlobalDTO {
 	private Long id;
 	private String nombre;
-	private String empresa; // "Argasa" o "Luga"
 	private String tipo; // "Cliente" o "Proveedor"
 }

@@ -1,3 +1,6 @@
+// =======================
+// Cliente.java
+// =======================
 package com.empresa.crm.entities;
 
 import java.util.ArrayList;
@@ -7,6 +10,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Data
 @Entity
@@ -17,18 +21,18 @@ public class Cliente {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // ✅ Campos nuevos solicitados
-    private String nombreApellidos;     // "Nombre y apellidos"
-    private String nombreComercial;     // "Nombre comercial"
-    private String direccion;           // "Direccion"
-    private String codigoPostal;        // "Codigo Postal"
-    private String poblacion;           // "Poblacion"
-    private String provincia;           // "Provincia"
-    private String telefono;            // "Numero telefono"
-    private String movil;               // "Numero movil"
-    private String cifDni;              // "CIF o DNI"
+    @Column(nullable = false, length = 100)
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private String empresa;
 
-    // Campo que ya estaba en tu entidad
+    private String nombreApellidos;
+    private String direccion;
+    private String codigoPostal;
+    private String poblacion;
+    private String provincia;
+    private String telefono;
+    private String movil;
+    private String cifDni;
     private String email;
 
     private Double totalImporte = 0.0;
@@ -41,10 +45,24 @@ public class Cliente {
         return importe - pagado;
     }
 
+    // ✅ Trabajos
     @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
+    @JsonManagedReference("cliente-trabajos")
     private List<Trabajo> trabajos = new ArrayList<>();
 
+    // ✅ Albaranes
+    @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference("cliente-albaranes")
+    private List<AlbaranCliente> albaranes = new ArrayList<>();
+
+    // ✅ Pagos
+    @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference("cliente-pagos")
+    private List<PagoCliente> pagos = new ArrayList<>();
+
+    // ============================
+    // Helpers trabajos (tuyos)
+    // ============================
     public void addTrabajo(Trabajo trabajo) {
         if (trabajo == null) return;
 

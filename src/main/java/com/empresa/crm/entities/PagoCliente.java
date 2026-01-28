@@ -1,3 +1,6 @@
+// =======================
+// PagoCliente.java
+// =======================
 package com.empresa.crm.entities;
 
 import java.time.LocalDate;
@@ -12,21 +15,24 @@ import lombok.Data;
 @Table(name = "pagos_clientes")
 public class PagoCliente {
 
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-	@Column(nullable = false)
-	private LocalDate fecha = LocalDate.now();
+    @Column(name = "empresa", nullable = false, length = 20)
+    private String empresa;
 
-	@Column(nullable = false)
-	private Double importe = 0.0;
+    @Column(nullable = false)
+    private LocalDate fecha = LocalDate.now();
 
-	private String metodo;
-	private String observaciones;
+    @Column(nullable = false)
+    private Double importe = 0.0;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "cliente_id")
-	@JsonBackReference
-	private Cliente cliente;
+    private String metodo;
+    private String observaciones;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cliente_id")
+    @JsonBackReference("cliente-pagos") // ✅ IMPORTANTE: mismo nombre que en Cliente
+    private Cliente cliente;
 }

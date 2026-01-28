@@ -5,6 +5,8 @@ import com.empresa.crm.entities.Cliente;
 import com.empresa.crm.entities.Proveedor;
 import com.empresa.crm.repositories.ClienteRepository;
 import com.empresa.crm.repositories.ProveedorRepository;
+import com.empresa.crm.tenant.TenantContext;
+
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,20 +25,14 @@ public class BusquedaController {
     }
 
     @GetMapping
-    public ResultadoBusquedaDTO buscarGlobal(@RequestParam String texto,
-                                            @RequestParam(required = false) String empresa) {
+    public ResultadoBusquedaDTO buscarGlobal(@RequestParam String texto) {
 
-        List<Cliente> clientes;
-        List<Proveedor> proveedores;
+        String empresa = TenantContext.get();
 
-        if (empresa != null && !empresa.isBlank()) {
-            clientes = clienteRepository.buscarPorTextoYNombreComercial(texto, empresa);
-            proveedores = proveedorRepository.buscarPorNombreYEmpresa(texto, empresa);
-        } else {
-            clientes = clienteRepository.buscarPorTexto(texto);
-            proveedores = proveedorRepository.buscarPorNombreOApellido(texto);
-        }
+        List<Cliente> clientes = clienteRepository.buscarPorTexto(texto, empresa);
+        List<Proveedor> proveedores = proveedorRepository.buscarPorNombreYEmpresa(texto, empresa);
 
         return new ResultadoBusquedaDTO(clientes, proveedores);
     }
+
 }

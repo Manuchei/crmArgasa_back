@@ -78,7 +78,7 @@ public class RutaScheduler {
 
 		sb.append("<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;width:100%;'>");
 		sb.append("<thead style='background:#f0f0f0;'>").append("<tr>").append("<th>Origen</th>")
-				.append("<th>Destino</th>").append("<th>Estado</th>").append("<th>Observaciones</th>").append("</tr>")
+				.append("<th>Destino</th>").append("<th>Tarea</th>").append("<th>Estado</th>").append("<th>Observaciones</th>").append("</tr>")
 				.append("</thead><tbody>");
 
 		for (Ruta r : rutas) {

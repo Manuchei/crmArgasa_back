@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ResumenMensualDTO {
-	private String empresa;
 	private String mes; // formato yyyy-MM
 	private int facturasClientes;
 	private double totalClientes;

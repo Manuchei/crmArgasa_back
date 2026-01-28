@@ -11,9 +11,19 @@ import com.empresa.crm.entities.Llamada;
 
 public interface LlamadaRepository extends JpaRepository<Llamada, Long> {
 	List<Llamada> findByFechaBetween(LocalDateTime inicio, LocalDateTime fin);
-    List<Llamada> findByEstado(String estado);
-    Page<Llamada> findByFechaAfterOrderByFechaAsc(LocalDateTime fecha, Pageable pageable);
 
+	List<Llamada> findByEstado(String estado);
 
+	Page<Llamada> findByFechaAfterOrderByFechaAsc(LocalDateTime fecha, Pageable pageable);
 
+	// ✅ Día + empresa
+	List<Llamada> findByEmpresaAndFechaBetween(String empresa, LocalDateTime inicio, LocalDateTime fin);
+
+	// ✅ Todos por empresa
+	List<Llamada> findByEmpresa(String empresa);
+
+	List<Llamada> findByEmpresaAndEstado(String empresa, String estado);
+
+	Page<Llamada> findByEmpresaAndFechaAfterOrderByFechaAsc(String empresa, LocalDateTime fecha, Pageable pageable);
+	
 }

@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import com.empresa.crm.entities.Proveedor;
 import com.empresa.crm.repositories.ProveedorRepository;
 import com.empresa.crm.services.ProveedorService;
+import com.empresa.crm.tenant.TenantContext;
 
 @Service
 public class ProveedorServiceImpl implements ProveedorService {
@@ -19,16 +20,22 @@ public class ProveedorServiceImpl implements ProveedorService {
 
     @Override
     public List<Proveedor> findAll() {
-        return proveedorRepository.findAll();
+        String empresa = TenantContext.get();
+        return proveedorRepository.findByEmpresa(empresa);
     }
 
     @Override
     public Proveedor findById(Long id) {
-        return proveedorRepository.findById(id).orElse(null);
+        String empresa = TenantContext.get();
+        return proveedorRepository.findByIdAndEmpresa(id, empresa).orElse(null);
     }
 
     @Override
     public Proveedor save(Proveedor proveedor) {
+        String empresa = TenantContext.get();
+
+        // ✅ Forzar empresa desde backend
+        proveedor.setEmpresa(empresa);
 
         double total = 0.0;
         double pagado = 0.0;
@@ -49,34 +56,31 @@ public class ProveedorServiceImpl implements ProveedorService {
 
     @Override
     public void deleteById(Long id) {
-        proveedorRepository.deleteById(id);
+        String empresa = TenantContext.get();
+        proveedorRepository.deleteByIdAndEmpresa(id, empresa);
     }
 
     @Override
     public List<Proveedor> findByOficio(String oficio) {
-        return proveedorRepository.findByOficio(oficio);
+        String empresa = TenantContext.get();
+        return proveedorRepository.findByEmpresaAndOficio(empresa, oficio);
     }
 
+    // ⚠️ Este método ya no debería recibir empresa desde fuera, pero lo mantengo por compatibilidad
     @Override
     public List<Proveedor> findByEmpresa(String empresa) {
-        if (empresa.equalsIgnoreCase("argasa")) {
-            return proveedorRepository.findByTrabajaEnArgasaTrue();
-        }
-        if (empresa.equalsIgnoreCase("luga")) {
-            return proveedorRepository.findByTrabajaEnLugaTrue();
-        }
-        return proveedorRepository.findAll();
+        // ✅ Ignoramos el parámetro y usamos TenantContext
+        return proveedorRepository.findByEmpresa(TenantContext.get());
     }
 
-    // ⭐ NUEVO: BÚSQUEDA AVANZADA
     @Override
     public List<Proveedor> buscar(String texto, String empresa, String oficio) {
+        String tenant = TenantContext.get();
 
         return proveedorRepository.buscarAvanzado(
                 texto == null ? "" : texto,
-                empresa == null ? "" : empresa,
+                tenant, // ✅ forzado
                 oficio == null ? "" : oficio
         );
     }
-
 }

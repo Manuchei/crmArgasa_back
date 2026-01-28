@@ -13,91 +13,97 @@ import com.empresa.crm.repositories.FacturaProveedorRepository;
 import com.empresa.crm.repositories.ProveedorRepository;
 import com.empresa.crm.repositories.TrabajoRepository;
 import com.empresa.crm.services.FacturaProveedorService;
+import com.empresa.crm.tenant.TenantContext;
 
 @Service
 public class FacturaProveedorServiceImpl implements FacturaProveedorService {
 
-	private final FacturaProveedorRepository facturaRepo;
-	private final ProveedorRepository proveedorRepo;
-	private final TrabajoRepository trabajoRepo;
+    private final FacturaProveedorRepository facturaRepo;
+    private final ProveedorRepository proveedorRepo;
+    private final TrabajoRepository trabajoRepo;
 
-	public FacturaProveedorServiceImpl(FacturaProveedorRepository facturaRepo, ProveedorRepository proveedorRepo,
-			TrabajoRepository trabajoRepo) {
-		this.facturaRepo = facturaRepo;
-		this.proveedorRepo = proveedorRepo;
-		this.trabajoRepo = trabajoRepo;
-	}
+    public FacturaProveedorServiceImpl(FacturaProveedorRepository facturaRepo,
+                                      ProveedorRepository proveedorRepo,
+                                      TrabajoRepository trabajoRepo) {
+        this.facturaRepo = facturaRepo;
+        this.proveedorRepo = proveedorRepo;
+        this.trabajoRepo = trabajoRepo;
+    }
 
-	@Override
-	public List<FacturaProveedor> findAll() {
-		return facturaRepo.findAll();
-	}
+    @Override
+    public List<FacturaProveedor> findAll() {
+        String empresa = TenantContext.get();
+        return facturaRepo.findByEmpresa(empresa);
+    }
 
-	@Override
-	public FacturaProveedor findById(Long id) {
-		return facturaRepo.findById(id).orElse(null);
-	}
+    @Override
+    public FacturaProveedor findById(Long id) {
+        String empresa = TenantContext.get();
+        return facturaRepo.findByIdAndEmpresa(id, empresa).orElse(null);
+    }
 
-	@Override
-	public FacturaProveedor generarFactura(Long proveedorId, String empresa) {
-		Proveedor proveedor = proveedorRepo.findById(proveedorId).orElse(null);
-		if (proveedor == null)
-			return null;
+    @Override
+    public FacturaProveedor generarFactura(Long proveedorId, String empresa) {
+        String tenant = TenantContext.get();
 
-		// obtener trabajos pendientes sin factura
-		List<Trabajo> trabajosPendientes = trabajoRepo.findByProveedorId(proveedorId).stream()
-				.filter(t -> !t.isPagado() && t.getFactura() == null).collect(Collectors.toList());
+        Proveedor proveedor = proveedorRepo.findByIdAndEmpresa(proveedorId, tenant).orElse(null);
+        if (proveedor == null) return null;
 
-		if (trabajosPendientes.isEmpty())
-			return null;
+        List<Trabajo> trabajosPendientes = trabajoRepo.findByProveedorId(proveedorId).stream()
+                .filter(t -> !t.isPagado() && t.getFactura() == null)
+                .collect(Collectors.toList());
 
-		double total = trabajosPendientes.stream().mapToDouble(Trabajo::getImporte).sum();
+        if (trabajosPendientes.isEmpty()) return null;
 
-		FacturaProveedor factura = new FacturaProveedor();
-		factura.setProveedor(proveedor);
-		factura.setEmpresa(empresa);
-		factura.setFechaEmision(LocalDate.now());
-		factura.setPagada(false);
-		factura.setTotalImporte(total);
-		factura = facturaRepo.save(factura);
+        double total = trabajosPendientes.stream()
+                .mapToDouble(t -> t.getImporte() != null ? t.getImporte() : 0.0)
+                .sum();
 
-		// vincular trabajos con la factura
-		for (Trabajo t : trabajosPendientes) {
-			t.setFactura(factura);
-			trabajoRepo.save(t);
-		}
+        FacturaProveedor factura = new FacturaProveedor();
+        factura.setProveedor(proveedor);
+        factura.setEmpresa(tenant); // ✅ forzado
+        factura.setFechaEmision(LocalDate.now());
+        factura.setPagada(false);
+        factura.setTotalImporte(total);
 
-		return factura;
-	}
+        factura = facturaRepo.save(factura);
 
-	@Override
-	public FacturaProveedor marcarComoPagada(Long facturaId) {
-		FacturaProveedor factura = facturaRepo.findById(facturaId).orElse(null);
-		if (factura == null)
-			return null;
+        for (Trabajo t : trabajosPendientes) {
+            t.setFactura(factura);
+            trabajoRepo.save(t);
+        }
 
-		factura.setPagada(true);
-		facturaRepo.save(factura);
+        return factura;
+    }
 
-		// marcar los trabajos de esa factura como pagados
-		if (factura.getTrabajos() != null) {
-			for (Trabajo t : factura.getTrabajos()) {
-				t.setPagado(true);
-				trabajoRepo.save(t);
-			}
-		}
+    @Override
+    public FacturaProveedor marcarComoPagada(Long facturaId) {
+        String empresa = TenantContext.get();
 
-		return factura;
-	}
+        FacturaProveedor factura = facturaRepo.findByIdAndEmpresa(facturaId, empresa).orElse(null);
+        if (factura == null) return null;
 
-	@Override
-	public List<FacturaProveedor> findByEmpresa(String empresa) {
-		return facturaRepo.findByEmpresa(empresa);
-	}
+        factura.setPagada(true);
+        facturaRepo.save(factura);
 
-	@Override
-	public List<FacturaProveedor> findByProveedor(Long proveedorId) {
-		return facturaRepo.findAll().stream().filter(f -> f.getProveedor().getId().equals(proveedorId))
-				.collect(Collectors.toList());
-	}
+        if (factura.getTrabajos() != null) {
+            for (Trabajo t : factura.getTrabajos()) {
+                t.setPagado(true);
+                trabajoRepo.save(t);
+            }
+        }
+
+        return factura;
+    }
+
+    @Override
+    public List<FacturaProveedor> findByEmpresa(String empresa) {
+        return facturaRepo.findByEmpresa(TenantContext.get());
+    }
+
+    @Override
+    public List<FacturaProveedor> findByProveedor(Long proveedorId) {
+        String empresa = TenantContext.get();
+        return facturaRepo.findByProveedorIdAndEmpresa(proveedorId, empresa);
+    }
 }

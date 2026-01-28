@@ -16,5 +16,8 @@ public interface TrabajoRepository extends JpaRepository<Trabajo, Long> {
 	List<Trabajo> findByClienteId(Long clienteId);
 
 	List<Trabajo> findByClienteIdOrderByIdAsc(Long clienteId);
+	
+	List<Trabajo> findByProveedorIdAndEmpresa(Long proveedorId, String empresa);
+
 
 }

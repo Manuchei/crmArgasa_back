@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import com.empresa.crm.entities.Proveedor;
+import java.util.Optional;
+
 
 public interface ProveedorRepository extends JpaRepository<Proveedor, Long> {
 
@@ -53,4 +55,12 @@ public interface ProveedorRepository extends JpaRepository<Proveedor, Long> {
             @Param("texto") String texto,
             @Param("empresa") String empresa,
             @Param("oficio") String oficio);
+    
+
+    List<Proveedor> findByEmpresa(String empresa);
+    Optional<Proveedor> findByIdAndEmpresa(Long id, String empresa);
+    void deleteByIdAndEmpresa(Long id, String empresa);
+
+    List<Proveedor> findByEmpresaAndOficio(String empresa, String oficio);
+
 }

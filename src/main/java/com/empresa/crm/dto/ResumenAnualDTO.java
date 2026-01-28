@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ResumenAnualDTO {
-	private String empresa;
 	private int año;
 	private double beneficioTotal;
 	private List<ResumenMensualSimpleDTO> meses;

@@ -37,6 +37,9 @@ public class Ruta {
 	private String origen;
 	private String destino;
 	
+	@Column(name = "empresa", nullable = false, length = 20)
+	private String empresa;
+	
 	@ManyToOne
 	@JoinColumn(name = "transportista_id")
 	private Transportista transportista;

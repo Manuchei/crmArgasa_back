@@ -2,6 +2,7 @@ package com.empresa.crm.entities;
 
 import java.time.LocalDate;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -24,6 +25,9 @@ public class ServicioCliente {
 	private LocalDate fecha;
 	private Double importe;
 	private boolean pagado;
+	
+	@Column(name = "empresa", nullable = false, length = 20)
+	private String empresa;
 
 	@ManyToOne
 	@JoinColumn(name = "cliente_id")

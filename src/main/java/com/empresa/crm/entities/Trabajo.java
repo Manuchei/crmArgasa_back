@@ -1,3 +1,6 @@
+// =======================
+// Trabajo.java
+// =======================
 package com.empresa.crm.entities;
 
 import jakarta.persistence.*;
@@ -20,25 +23,24 @@ public class Trabajo {
     private Double importePagado = 0.0;
     private boolean pagado = false;
 
-    // ✅ Relación con Cliente (NECESARIO para emparejar con @JsonManagedReference en Cliente)
+    @Column(name = "empresa", nullable = false, length = 20)
+    private String empresa;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cliente_id")
-    @JsonBackReference
+    @JsonBackReference("cliente-trabajos") // ✅ IMPORTANTE: mismo nombre que en Cliente
     private Cliente cliente;
 
-    // 🔹 Relación con Proveedor (para facturas)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "proveedor_id")
     @JsonIgnore
     private Proveedor proveedor;
 
-    // 🔹 Relación con FacturaProveedor
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "factura_id")
     @JsonIgnore
     private FacturaProveedor factura;
 
-    // Métodos adicionales usados en otros servicios
     public boolean isPagado() {
         return pagado;
     }
