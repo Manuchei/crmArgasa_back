@@ -36,4 +36,8 @@ public class ServicioCliente {
 	@ManyToOne
 	@JoinColumn(name = "factura_id")
 	private FacturaCliente factura;
+	
+	@Column(name = "factura_v2_id")
+	private Long facturaV2Id;
+	
 }

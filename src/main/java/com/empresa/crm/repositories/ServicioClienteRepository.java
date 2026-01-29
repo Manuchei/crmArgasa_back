@@ -15,6 +15,14 @@ public interface ServicioClienteRepository extends JpaRepository<ServicioCliente
     // ✅ Multi-tenant correcto
     List<ServicioCliente> findByClienteIdAndEmpresa(Long clienteId, String empresa);
     List<ServicioCliente> findByClienteIdAndEmpresaIsNull(Long clienteId);
+    
+    List<ServicioCliente> findByClienteIdAndEmpresaAndFacturaV2IdIsNull(Long clienteId, String empresa);
+    
+    List<ServicioCliente> findByEmpresaAndIdInAndFacturaV2IdIsNull(String empresa, List<Long> ids);
+    
+    List<ServicioCliente> findByEmpresaAndIdIn(String empresa, List<Long> ids);
+
+
 
     
 }

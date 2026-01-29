@@ -38,6 +38,9 @@ public class LineaAlbaranCliente {
 	@JoinColumn(name = "albaran_id")
 	@JsonBackReference("albaran-lineas")
 	private AlbaranCliente albaran;
+	
+	@Column(name = "factura_v2_id")
+	private Long facturaV2Id;
 
 	public void recalcular() {
 		double uds = unidades != null ? unidades : 0.0;
