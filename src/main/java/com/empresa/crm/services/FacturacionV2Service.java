@@ -22,6 +22,14 @@ import com.empresa.crm.repositories.facturacionV2.ContadorFacturaV2Repository;
 import com.empresa.crm.repositories.facturacionV2.FacturaV2Repository;
 import com.empresa.crm.tenant.TenantContext;
 
+import com.empresa.crm.entities.facturacionV2.FacturaV2;
+import com.empresa.crm.entities.facturacionV2.LineaFacturaV2;
+import com.empresa.crm.dto.facturacionv2.FacturaV2Response;
+import com.empresa.crm.dto.facturacionv2.LineaFacturaV2Response;
+
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+
 @Service
 public class FacturacionV2Service {
 
@@ -44,31 +52,25 @@ public class FacturacionV2Service {
 	@Transactional(readOnly = true)
 	public FacturaV2Response getFacturaById(Long id) {
 
-	    FacturaV2 factura = facturaRepo.findById(id)
+	    String empresa = TenantContext.get();
+	    if (empresa == null || empresa.isBlank()) {
+	        throw new RuntimeException("Empresa no seleccionada");
+	    }
+
+	    FacturaV2 factura = facturaRepo.findByIdAndEmpresa(id, empresa)
 	            .orElseThrow(() -> new RuntimeException("Factura no encontrada"));
 
-	    // ✅ aquí NO uses "mapper" si no existe.
-	    // Usa el mismo método de conversión que ya uses en listarFacturas()
-	    return toResponse(factura);
+	    return toFacturaV2Response(factura);
 	}
+
 	
-	private FacturaV2Response toResponse(FacturaV2 f) {
+	private FacturaV2Response toFacturaV2Response(FacturaV2 f) {
 
-	    // líneas
-	    List<LineaFacturaV2Response> lineas = f.getLineas().stream().map(l ->
-	            new LineaFacturaV2Response(
-	                    l.getId(),
-	                    l.getTipoOrigen(),     // 'SERVICIO' o 'ALBARAN_LINEA'
-	                    l.getOrigenId(),
-	                    l.getDescripcion(),
-	                    l.getCantidad(),
-	                    l.getPrecioUnitario(),
-	                    l.getSubtotal(),
-	                    l.getIvaPct(),
-	                    l.getTotalLinea()
-	            )
-	    ).toList();
+	    List<LineaFacturaV2Response> lineas = f.getLineas().stream()
+	            .map(this::toLineaFacturaV2Response)
+	            .toList();
 
+	    // ✅ Si FacturaV2Response es RECORD:
 	    return new FacturaV2Response(
 	            f.getId(),
 	            f.getEmpresa(),
@@ -82,6 +84,23 @@ public class FacturacionV2Service {
 	            lineas
 	    );
 	}
+
+	private LineaFacturaV2Response toLineaFacturaV2Response(LineaFacturaV2 l) {
+
+	    // ✅ Si LineaFacturaV2Response es RECORD:
+	    return new LineaFacturaV2Response(
+	            l.getId(),
+	            l.getTipoOrigen(),
+	            l.getOrigenId(),
+	            l.getDescripcion(),
+	            l.getCantidad(),
+	            l.getPrecioUnitario(),
+	            l.getSubtotal(),
+	            l.getIvaPct(),
+	            l.getTotalLinea()
+	    );
+	}
+
 
 
 	

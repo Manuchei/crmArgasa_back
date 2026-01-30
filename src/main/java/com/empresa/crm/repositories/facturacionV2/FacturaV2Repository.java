@@ -2,11 +2,15 @@ package com.empresa.crm.repositories.facturacionV2;
 
 import java.util.List;
 import java.util.Optional;
+
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.empresa.crm.entities.facturacionV2.FacturaV2;
 
 public interface FacturaV2Repository extends JpaRepository<FacturaV2, Long> {
+	
+	@EntityGraph(attributePaths = "lineas")
 	Optional<FacturaV2> findByIdAndEmpresa(Long id, String empresa);
 
 	List<FacturaV2> findByEmpresaOrderByFechaEmisionDesc(String empresa);
@@ -23,5 +27,7 @@ public interface FacturaV2Repository extends JpaRepository<FacturaV2, Long> {
 
 	List<FacturaV2> findByEmpresaAndCliente_IdAndEstadoOrderByFechaEmisionDesc(String empresa, Long clienteId,
 			String estado);
+	
+	}
 
-}
+
