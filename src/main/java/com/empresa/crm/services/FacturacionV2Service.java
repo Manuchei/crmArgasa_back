@@ -7,7 +7,9 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.empresa.crm.dto.facturacionv2.ClienteDTO;
 import com.empresa.crm.dto.facturacionv2.CrearFacturaV2Request;
+import com.empresa.crm.dto.facturacionv2.EmpresaEmisoraDTO;
 import com.empresa.crm.dto.facturacionv2.FacturaV2Response;
 import com.empresa.crm.dto.facturacionv2.LineaFacturaV2Response;
 import com.empresa.crm.entities.LineaAlbaranCliente;
@@ -21,14 +23,6 @@ import com.empresa.crm.repositories.ServicioClienteRepository;
 import com.empresa.crm.repositories.facturacionV2.ContadorFacturaV2Repository;
 import com.empresa.crm.repositories.facturacionV2.FacturaV2Repository;
 import com.empresa.crm.tenant.TenantContext;
-
-import com.empresa.crm.entities.facturacionV2.FacturaV2;
-import com.empresa.crm.entities.facturacionV2.LineaFacturaV2;
-import com.empresa.crm.dto.facturacionv2.FacturaV2Response;
-import com.empresa.crm.dto.facturacionv2.LineaFacturaV2Response;
-
-import org.springframework.transaction.annotation.Transactional;
-import java.util.List;
 
 @Service
 public class FacturacionV2Service {
@@ -48,68 +42,44 @@ public class FacturacionV2Service {
 		this.facturaRepo = facturaRepo;
 		this.contadorRepo = contadorRepo;
 	}
-	
+
+	// ✅ Para imprimir: traer cliente + lineas (evita LAZY / null)
 	@Transactional(readOnly = true)
 	public FacturaV2Response getFacturaById(Long id) {
 
-	    String empresa = TenantContext.get();
-	    if (empresa == null || empresa.isBlank()) {
-	        throw new RuntimeException("Empresa no seleccionada");
-	    }
+		String empresa = TenantContext.get();
+		if (empresa == null || empresa.isBlank()) {
+			throw new RuntimeException("Empresa no seleccionada");
+		}
 
-	    FacturaV2 factura = facturaRepo.findByIdAndEmpresa(id, empresa)
-	            .orElseThrow(() -> new RuntimeException("Factura no encontrada"));
+		FacturaV2 factura = facturaRepo.findByIdAndEmpresaWithClienteAndLineas(id, empresa)
+				.orElseThrow(() -> new RuntimeException("Factura no encontrada"));
 
-	    return toFacturaV2Response(factura);
+		return toFacturaV2Response(factura);
 	}
 
-	
 	private FacturaV2Response toFacturaV2Response(FacturaV2 f) {
 
-	    List<LineaFacturaV2Response> lineas = f.getLineas().stream()
-	            .map(this::toLineaFacturaV2Response)
-	            .toList();
+		List<LineaFacturaV2Response> lineas = f.getLineas().stream().map(this::toLineaFacturaV2Response).toList();
 
-	    // ✅ Si FacturaV2Response es RECORD:
-	    return new FacturaV2Response(
-	            f.getId(),
-	            f.getEmpresa(),
-	            f.getSerie(),
-	            f.getNumero(),
-	            f.getFechaEmision(),
-	            f.getEstado(),
-	            f.getBaseImponible(),
-	            f.getIvaTotal(),
-	            f.getTotal(),
-	            lineas
-	    );
+		return new FacturaV2Response(f.getId(), f.getEmpresa(), f.getSerie(), f.getNumero(), f.getFechaEmision(),
+				f.getEstado(), f.getBaseImponible(), f.getIvaTotal(), f.getTotal(), toClienteDTO(f.getCliente()),
+				toEmisorDTO(f.getEmpresa()), lineas);
 	}
 
 	private LineaFacturaV2Response toLineaFacturaV2Response(LineaFacturaV2 l) {
-
-	    // ✅ Si LineaFacturaV2Response es RECORD:
-	    return new LineaFacturaV2Response(
-	            l.getId(),
-	            l.getTipoOrigen(),
-	            l.getOrigenId(),
-	            l.getDescripcion(),
-	            l.getCantidad(),
-	            l.getPrecioUnitario(),
-	            l.getSubtotal(),
-	            l.getIvaPct(),
-	            l.getTotalLinea()
-	    );
+		return new LineaFacturaV2Response(l.getId(), l.getTipoOrigen(), l.getOrigenId(), l.getDescripcion(),
+				l.getCantidad(), l.getPrecioUnitario(), l.getSubtotal(), l.getIvaPct(), l.getTotalLinea());
 	}
 
-
-
-	
 	// ✅ LISTADO: devuelve BORRADOR + EMITIDA + etc (filtrable)
 	@Transactional(readOnly = true)
 	public List<FacturaV2Response> listarFacturas(Long clienteId, String estado) {
+
 		String empresa = TenantContext.get();
-		if (empresa == null || empresa.isBlank())
+		if (empresa == null || empresa.isBlank()) {
 			throw new RuntimeException("Empresa no seleccionada");
+		}
 
 		String est = (estado == null || estado.isBlank()) ? null : estado.trim();
 
@@ -130,14 +100,15 @@ public class FacturacionV2Service {
 
 	@Transactional
 	public FacturaV2Response crearBorrador(CrearFacturaV2Request req) {
+
 		String empresa = TenantContext.get();
-		if (empresa == null || empresa.isBlank())
+		if (empresa == null || empresa.isBlank()) {
 			throw new RuntimeException("Empresa no seleccionada");
+		}
 
 		Long clienteId = req.clienteId();
 		String serie = (req.serie() == null || req.serie().isBlank()) ? "A" : req.serie().trim();
 
-		// 1) validar cliente pertenece a empresa
 		var cliente = clienteRepo.findByIdAndEmpresa(clienteId, empresa)
 				.orElseThrow(() -> new RuntimeException("Cliente no existe o no pertenece a la empresa"));
 
@@ -148,7 +119,6 @@ public class FacturacionV2Service {
 			throw new RuntimeException("Debes seleccionar al menos un servicio o una línea de albarán");
 		}
 
-		// 2) cargar selección VALIDANDO “pendiente”
 		List<ServicioCliente> servicios = servicioIds.isEmpty() ? List.of()
 				: servicioRepo.findByEmpresaAndIdInAndFacturaV2IdIsNull(empresa, servicioIds);
 
@@ -158,8 +128,9 @@ public class FacturacionV2Service {
 		}
 
 		boolean serviciosOtroCliente = servicios.stream().anyMatch(s -> !s.getCliente().getId().equals(clienteId));
-		if (serviciosOtroCliente)
+		if (serviciosOtroCliente) {
 			throw new RuntimeException("Hay servicios que no pertenecen al cliente");
+		}
 
 		List<LineaAlbaranCliente> lineas = lineaIds.isEmpty() ? List.of()
 				: lineaRepo.findPendientesSeleccionadas(lineaIds, empresa, clienteId);
@@ -169,18 +140,16 @@ public class FacturacionV2Service {
 					"Hay líneas no válidas (no pendientes, otro cliente, otra empresa o albarán no confirmado)");
 		}
 
-		// 3) crear factura con número correlativo por empresa+serie
 		int numero = siguienteNumero(empresa, serie);
 
 		FacturaV2 factura = new FacturaV2();
-		factura.setCliente(cliente); // ✅ CLAVE
-		factura.setEmpresa(empresa); // ✅ CLAVE
+		factura.setCliente(cliente);
+		factura.setEmpresa(empresa);
 		factura.setSerie(serie);
 		factura.setNumero(numero);
 		factura.setFechaEmision(LocalDate.now());
 		factura.setEstado("BORRADOR");
 
-		// 4) líneas desde servicios + albarán
 		List<LineaFacturaV2> lineasFactura = new ArrayList<>();
 
 		for (ServicioCliente s : servicios) {
@@ -215,13 +184,10 @@ public class FacturacionV2Service {
 
 		factura.getLineas().addAll(lineasFactura);
 
-		// 5) recalcular totales
 		recalcularTotales(factura);
 
-		// 6) guardar factura
 		FacturaV2 guardada = facturaRepo.save(factura);
 
-		// 7) RESERVAR items
 		servicios.forEach(s -> s.setFacturaV2Id(guardada.getId()));
 		lineas.forEach(l -> l.setFacturaV2Id(guardada.getId()));
 
@@ -230,9 +196,11 @@ public class FacturacionV2Service {
 
 	@Transactional
 	public void cancelarBorrador(Long facturaId) {
+
 		String empresa = TenantContext.get();
-		if (empresa == null || empresa.isBlank())
+		if (empresa == null || empresa.isBlank()) {
 			throw new RuntimeException("Empresa no seleccionada");
+		}
 
 		FacturaV2 factura = facturaRepo.findByIdAndEmpresa(facturaId, empresa)
 				.orElseThrow(() -> new RuntimeException("Factura no existe"));
@@ -247,8 +215,9 @@ public class FacturacionV2Service {
 		if (!servicioIds.isEmpty()) {
 			List<ServicioCliente> servicios = servicioRepo.findByEmpresaAndIdIn(empresa, servicioIds);
 			servicios.forEach(s -> {
-				if (facturaId.equals(s.getFacturaV2Id()))
+				if (facturaId.equals(s.getFacturaV2Id())) {
 					s.setFacturaV2Id(null);
+				}
 			});
 		}
 
@@ -269,9 +238,11 @@ public class FacturacionV2Service {
 
 	@Transactional
 	public FacturaV2Response emitir(Long facturaId) {
+
 		String empresa = TenantContext.get();
-		if (empresa == null || empresa.isBlank())
+		if (empresa == null || empresa.isBlank()) {
 			throw new RuntimeException("Empresa no seleccionada");
+		}
 
 		FacturaV2 factura = facturaRepo.findByIdAndEmpresa(facturaId, empresa)
 				.orElseThrow(() -> new RuntimeException("Factura no existe"));
@@ -329,7 +300,31 @@ public class FacturacionV2Service {
 				.toList();
 
 		return new FacturaV2Response(f.getId(), f.getEmpresa(), f.getSerie(), f.getNumero(), f.getFechaEmision(),
-				f.getEstado(), f.getBaseImponible(), f.getIvaTotal(), f.getTotal(), lineas);
+				f.getEstado(), f.getBaseImponible(), f.getIvaTotal(), f.getTotal(), toClienteDTO(f.getCliente()),
+				toEmisorDTO(f.getEmpresa()), lineas);
+	}
+
+	private ClienteDTO toClienteDTO(com.empresa.crm.entities.Cliente c) {
+		if (c == null)
+			return null;
+		return new ClienteDTO(c.getId(), c.getNombreApellidos(), c.getCifDni(), c.getDireccion(), c.getCodigoPostal(),
+				c.getPoblacion(), c.getProvincia(), c.getTelefono(), c.getEmail());
+	}
+
+	private EmpresaEmisoraDTO toEmisorDTO(String empresa) {
+		String emp = (empresa == null) ? "" : empresa.trim().toUpperCase();
+
+		if ("ARGASA".equals(emp)) {
+			return new EmpresaEmisoraDTO("Argasa Garrido S.L.", "B-36879617", "Calle Pintor Laxeiro, 15", "36211", "Vigo", "Pontevedra",
+					"986 234 946", "argasa@empresa.com");
+		}
+
+		if ("ELECTROLUGA".equals(emp) || "LUGA".equals(emp)) {
+			return new EmpresaEmisoraDTO("Electrodomesticos Luis Garrido S.L.", "B-42722389", "Calle Pintor Laxeiro, 15", "36211", "Vigo", "Pontevedra",
+					"986 234 946", "electroluga@empresa.com");
+		}
+
+		return new EmpresaEmisoraDTO(emp, "", "", "", "", "", "", "");
 	}
 
 	private void validarReservasSiguenVivas(String empresa, FacturaV2 factura) {

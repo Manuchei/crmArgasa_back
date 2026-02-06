@@ -16,121 +16,138 @@ import com.empresa.crm.services.TrabajoService;
 @CrossOrigin(origins = "http://localhost:4200")
 public class TrabajoController {
 
-    private final TrabajoService trabajoService;
-    private final ClienteService clienteService;
-    private final ProveedorService proveedorService;
+	private final TrabajoService trabajoService;
+	private final ClienteService clienteService;
+	private final ProveedorService proveedorService;
 
-    public TrabajoController(
-            TrabajoService trabajoService,
-            ClienteService clienteService,
-            ProveedorService proveedorService) {
+	public TrabajoController(TrabajoService trabajoService, ClienteService clienteService,
+			ProveedorService proveedorService) {
 
-        this.trabajoService = trabajoService;
-        this.clienteService = clienteService;
-        this.proveedorService = proveedorService;
-    }
+		this.trabajoService = trabajoService;
+		this.clienteService = clienteService;
+		this.proveedorService = proveedorService;
+	}
 
-    // -------------------- CRUD GENERAL --------------------
+	// -------------------- CRUD GENERAL --------------------
 
-    @GetMapping
-    public List<Trabajo> listarTodos() {
-        return trabajoService.findAll();
-    }
+	@GetMapping
+	public List<Trabajo> listarTodos() {
+		return trabajoService.findAll();
+	}
 
-    @GetMapping("/{id}")
-    public Trabajo obtenerPorId(@PathVariable Long id) {
-        return trabajoService.findById(id);
-    }
+	@GetMapping("/{id}")
+	public Trabajo obtenerPorId(@PathVariable Long id) {
+		return trabajoService.findById(id);
+	}
 
-    @PostMapping
-    public Trabajo crear(@RequestBody Trabajo trabajo) {
-        return trabajoService.save(trabajo);
-    }
+	@PostMapping
+	public Trabajo crear(@RequestBody Trabajo trabajo) {
+		return trabajoService.save(trabajo);
+	}
 
-    @PutMapping("/{id}")
-    public Trabajo actualizar(@PathVariable Long id, @RequestBody Trabajo trabajo) {
-        trabajo.setId(id);
-        return trabajoService.save(trabajo);
-    }
+	@PutMapping("/{id}")
+	public Trabajo actualizar(@PathVariable Long id, @RequestBody Trabajo trabajo) {
+		trabajo.setId(id);
+		return trabajoService.save(trabajo);
+	}
 
-    @DeleteMapping("/{id}")
-    public void eliminar(@PathVariable Long id) {
-        trabajoService.deleteById(id);
-    }
+	@DeleteMapping("/{id}")
+	public void eliminar(@PathVariable Long id) {
+		trabajoService.deleteById(id);
+	}
 
-    // -------------------- FILTROS --------------------
+	// -------------------- FILTROS --------------------
 
-    @GetMapping("/proveedor/{proveedorId}")
-    public List<Trabajo> listarPorProveedor(@PathVariable Long proveedorId) {
-        return trabajoService.findByProveedor(proveedorId);
-    }
+	@GetMapping("/proveedor/{proveedorId}")
+	public List<Trabajo> listarPorProveedor(@PathVariable Long proveedorId) {
+		return trabajoService.findByProveedor(proveedorId);
+	}
 
-    @GetMapping("/pagado/{pagado}")
-    public List<Trabajo> listarPorPago(@PathVariable boolean pagado) {
-        return trabajoService.findByPagado(pagado);
-    }
+	@GetMapping("/pagado/{pagado}")
+	public List<Trabajo> listarPorPago(@PathVariable boolean pagado) {
+		return trabajoService.findByPagado(pagado);
+	}
 
-    @GetMapping("/cliente/{clienteId}")
-    public List<Trabajo> listarPorCliente(@PathVariable Long clienteId) {
-        return trabajoService.findByCliente(clienteId);
-    }
+	@GetMapping("/cliente/{clienteId}")
+	public List<Trabajo> listarPorCliente(@PathVariable Long clienteId) {
+		return trabajoService.findByCliente(clienteId);
+	}
 
-    // -------------------- CLIENTES --------------------
+	// -------------------- CLIENTES --------------------
+	@PostMapping("/cliente/{clienteId}")
+	public Trabajo crearTrabajoParaCliente(@PathVariable Long clienteId, @RequestBody Trabajo trabajo,
+			@RequestHeader(value = "X-Empresa", required = false) String empresaHeader) {
 
-    @PostMapping("/cliente/{clienteId}")
-    public Trabajo crearTrabajoParaCliente(@PathVariable Long clienteId, @RequestBody Trabajo trabajo) {
+		Cliente cliente = clienteService.findById(clienteId);
 
-        Cliente cliente = clienteService.findById(clienteId);
+		if (cliente == null) {
+			throw new RuntimeException("Cliente no encontrado con ID: " + clienteId);
+		}
 
-        if (cliente == null) {
-            throw new RuntimeException("Cliente no encontrado con ID: " + clienteId);
-        }
+		// ✅ asociar cliente al trabajo
+		trabajo.setCliente(cliente);
 
-        cliente.addTrabajo(trabajo);
-        clienteService.save(cliente);
+		// ✅ empresa obligatoria (NOT NULL en BD)
+		// 1) la del cliente (preferida)
+		String empresa = cliente.getEmpresa();
 
-        return trabajo;
-    }
+		// 2) fallback: header si cliente viejo no tiene empresa
+		if ((empresa == null || empresa.isBlank()) && empresaHeader != null && !empresaHeader.isBlank()) {
+			empresa = empresaHeader.trim();
+		}
 
-    // -------------------- PROVEEDORES --------------------
+		// si sigue null, no guardamos
+		if (empresa == null || empresa.isBlank()) {
+			throw new RuntimeException(
+					"No se pudo determinar la empresa del trabajo (cliente sin empresa y sin header X-Empresa).");
+		}
 
-    @PostMapping("/proveedor/{proveedorId}")
-    public Trabajo crearTrabajoParaProveedor(@PathVariable Long proveedorId,
-                                              @RequestBody Trabajo trabajo) {
+		trabajo.setEmpresa(empresa);
 
-        Proveedor proveedor = proveedorService.findById(proveedorId);
+		// ✅ guardar
+		return trabajoService.save(trabajo);
+	}
 
-        if (proveedor == null) {
-            throw new RuntimeException("Proveedor no encontrado con ID: " + proveedorId);
-        }
+	// -------------------- PROVEEDORES --------------------
 
-        trabajo.setProveedor(proveedor);
-        trabajoService.save(trabajo);
+	@PostMapping("/proveedor/{proveedorId}")
+	public Trabajo crearTrabajoParaProveedor(@PathVariable Long proveedorId, @RequestBody Trabajo trabajo) {
 
-        proveedor.getTrabajos().add(trabajo);
+		Proveedor proveedor = proveedorService.findById(proveedorId);
 
-        // ✅ Recalcular totales del proveedor
-        proveedorService.save(proveedor);
+		if (proveedor == null) {
+			throw new RuntimeException("Proveedor no encontrado con ID: " + proveedorId);
+		}
 
-        return trabajo;
-    }
+		trabajo.setProveedor(proveedor);
 
-    @DeleteMapping("/proveedor/{trabajoId}")
-    public void eliminarTrabajoProveedor(@PathVariable Long trabajoId) {
+		// ✅ también aquí conviene asegurar empresa si es NOT NULL
+		if (trabajo.getEmpresa() == null || trabajo.getEmpresa().isBlank()) {
+			trabajo.setEmpresa(proveedor.getEmpresa());
+		}
 
-        Trabajo trabajo = trabajoService.findById(trabajoId);
+		trabajoService.save(trabajo);
 
-        if (trabajo == null) {
-            throw new RuntimeException("Trabajo no encontrado con ID: " + trabajoId);
-        }
+		proveedor.getTrabajos().add(trabajo);
+		proveedorService.save(proveedor);
 
-        Proveedor proveedor = trabajo.getProveedor();
+		return trabajo;
+	}
 
-        trabajoService.deleteById(trabajoId);
+	@DeleteMapping("/proveedor/{trabajoId}")
+	public void eliminarTrabajoProveedor(@PathVariable Long trabajoId) {
 
-        proveedor.getTrabajos().remove(trabajo);
+		Trabajo trabajo = trabajoService.findById(trabajoId);
 
-        // ✅ Recalcular totales
-        proveedorService.save(proveedor);
-    }
+		if (trabajo == null) {
+			throw new RuntimeException("Trabajo no encontrado con ID: " + trabajoId);
+		}
+
+		Proveedor proveedor = trabajo.getProveedor();
+
+		trabajoService.deleteById(trabajoId);
+
+		proveedor.getTrabajos().remove(trabajo);
+		proveedorService.save(proveedor);
+	}
 }

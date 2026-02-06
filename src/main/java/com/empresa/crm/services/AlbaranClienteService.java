@@ -53,7 +53,7 @@ public class AlbaranClienteService {
         AlbaranCliente a = new AlbaranCliente();
         a.setCliente(c);
 
-        // ✅ IMPORTANTE: empresa = TENANT del cliente (NO Argasa/Luga)
+        // ✅ empresa = tenant del cliente (NO Argasa/Luga)
         a.setEmpresa(c.getEmpresa());
 
         // ===== SNAPSHOT CLIENTE =====
@@ -68,7 +68,6 @@ public class AlbaranClienteService {
         a.setEmail(c.getEmail());
         a.setEmpresa(c.getEmpresa()); // esto NO puede ser null
 
-
         // ===== COPIAR TRABAJOS -> LÍNEAS =====
         List<Trabajo> trabajos = trabajoRepo.findByClienteId(clienteId);
 
@@ -79,50 +78,72 @@ public class AlbaranClienteService {
                 String desc = (t.getDescripcion() != null) ? t.getDescripcion().trim() : "";
                 if (desc.isBlank()) continue;
 
-                double importe = safe(t.getImporte());
-                if (importe <= 0) continue;
+                // ✅ ahora usamos unidades + precio unitario + descuento reales
+                int unidades = safeInt(t.getUnidades(), 1);
+                double precioUnitario = safe(t.getPrecioUnitario());
+                double dtoPct = safe(t.getDescuento());
+
+                // Si tu Trabajo antiguo no tiene precioUnitario pero sí importe,
+                // puedes estimarlo para no perder datos:
+                if (precioUnitario <= 0) {
+                    double importeLegacy = safe(t.getImporte());
+                    if (importeLegacy <= 0) continue;
+                    // si había unidades, estimamos el unitario
+                    precioUnitario = importeLegacy / Math.max(1, unidades);
+                }
+
+                // normalizar dto
+                if (dtoPct < 0) dtoPct = 0;
+                if (dtoPct > 100) dtoPct = 100;
 
                 LineaAlbaranCliente l = new LineaAlbaranCliente();
                 l.setEmpresa(a.getEmpresa());          // ✅ IMPORTANTE (evita el 500)
                 l.setCodigo(null);
                 l.setDescripcion(desc);
-                l.setUnidades(1.0);
-                l.setPrecio(importe);
-                l.setDtoPct(0.0);
+
+                // ✅ copiar correctamente
+                l.setUnidades((double) unidades);       // tu entidad usa Double
+                l.setPrecio(precioUnitario);
+                l.setDtoPct(dtoPct);                    // ✅ AQUÍ estaba el fallo
 
                 l.setAlbaran(a);
                 l.recalcular();
 
                 a.getLineas().add(l);
-
-        }
+            }
         }
 
         a.recalcularTotales();
         return albaranRepo.save(a);
     }
 
-
-
     private double safe(Double v) {
         return v != null ? v : 0.0;
     }
 
+    private int safeInt(Integer v, int def) {
+        if (v == null) return def;
+        return v <= 0 ? def : v;
+    }
+
     @Transactional
     public AlbaranCliente save(AlbaranCliente albaran) {
-    	if (albaran.getLineas() != null) {
-    		  for (LineaAlbaranCliente l : albaran.getLineas()) {
-    		    if (l == null) continue;
+        if (albaran.getLineas() != null) {
+            for (LineaAlbaranCliente l : albaran.getLineas()) {
+                if (l == null) continue;
 
-    		    l.setAlbaran(albaran);
+                l.setAlbaran(albaran);
 
-    		    if (l.getEmpresa() == null || l.getEmpresa().isBlank()) {
-    		      l.setEmpresa(albaran.getEmpresa());   // ✅
-    		    }
+                if (l.getEmpresa() == null || l.getEmpresa().isBlank()) {
+                    l.setEmpresa(albaran.getEmpresa());   // ✅
+                }
 
-    		    l.recalcular();
-    		  }
-    		}
+                // ✅ asegurar dtoPct nunca null
+                if (l.getDtoPct() == null) l.setDtoPct(0.0);
+
+                l.recalcular();
+            }
+        }
 
         albaran.recalcularTotales();
         return albaranRepo.save(albaran);
@@ -142,7 +163,12 @@ public class AlbaranClienteService {
         linea.setAlbaran(a);
 
         if (linea.getEmpresa() == null || linea.getEmpresa().isBlank()) {
-          linea.setEmpresa(a.getEmpresa());   // ✅
+            linea.setEmpresa(a.getEmpresa());   // ✅
+        }
+
+        // ✅ si no mandan dtoPct, que sea 0
+        if (linea.getDtoPct() == null) {
+            linea.setDtoPct(0.0);
         }
 
         linea.recalcular();
