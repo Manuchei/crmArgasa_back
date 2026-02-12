@@ -17,6 +17,10 @@ public class Trabajo {
 
 	private String descripcion;
 
+	// ✅ si este trabajo viene de un producto, guardamos el productoId
+	@Column(name = "producto_id")
+	private Long productoId;
+
 	// ✅ NUEVO
 	private Integer unidades = 1;
 

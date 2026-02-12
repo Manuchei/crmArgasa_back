@@ -5,11 +5,15 @@ import java.util.List;
 import org.springframework.web.bind.annotation.*;
 
 import com.empresa.crm.entities.Cliente;
+import com.empresa.crm.entities.Producto;
 import com.empresa.crm.entities.Proveedor;
 import com.empresa.crm.entities.Trabajo;
+import com.empresa.crm.repositories.ProductoRepository;
 import com.empresa.crm.services.ClienteService;
 import com.empresa.crm.services.ProveedorService;
 import com.empresa.crm.services.TrabajoService;
+
+import jakarta.transaction.Transactional;
 
 @RestController
 @RequestMapping("/api/trabajos")
@@ -19,13 +23,14 @@ public class TrabajoController {
 	private final TrabajoService trabajoService;
 	private final ClienteService clienteService;
 	private final ProveedorService proveedorService;
+	private final ProductoRepository productoRepo;
 
 	public TrabajoController(TrabajoService trabajoService, ClienteService clienteService,
-			ProveedorService proveedorService) {
-
+			ProveedorService proveedorService, ProductoRepository productoRepo) {
 		this.trabajoService = trabajoService;
 		this.clienteService = clienteService;
 		this.proveedorService = proveedorService;
+		this.productoRepo = productoRepo;
 	}
 
 	// -------------------- CRUD GENERAL --------------------
@@ -51,8 +56,36 @@ public class TrabajoController {
 		return trabajoService.save(trabajo);
 	}
 
+	/**
+	 * ✅ ELIMINAR TRABAJO Si el trabajo viene de un producto (productoId != null),
+	 * devolvemos stock: stock += unidades
+	 */
 	@DeleteMapping("/{id}")
+	@Transactional
 	public void eliminar(@PathVariable Long id) {
+
+		Trabajo trabajo = trabajoService.findById(id);
+		if (trabajo == null) {
+			throw new RuntimeException("Trabajo no encontrado con ID: " + id);
+		}
+
+		// ✅ devolver stock si procede
+		Long productoId = trabajo.getProductoId();
+		if (productoId != null) {
+			Producto prod = productoRepo.findById(productoId)
+					.orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + productoId));
+
+			int unidades = (trabajo.getUnidades() != null && trabajo.getUnidades() > 0) ? trabajo.getUnidades() : 1;
+
+			// getStock seguramente es int (no null). Si fuese Integer, esto también
+			// funciona:
+			int actual = prod.getStock();
+			int nuevo = actual + unidades;
+
+			prod.setStock(nuevo);
+			productoRepo.save(prod);
+		}
+
 		trabajoService.deleteById(id);
 	}
 
@@ -88,15 +121,12 @@ public class TrabajoController {
 		trabajo.setCliente(cliente);
 
 		// ✅ empresa obligatoria (NOT NULL en BD)
-		// 1) la del cliente (preferida)
 		String empresa = cliente.getEmpresa();
 
-		// 2) fallback: header si cliente viejo no tiene empresa
 		if ((empresa == null || empresa.isBlank()) && empresaHeader != null && !empresaHeader.isBlank()) {
 			empresa = empresaHeader.trim();
 		}
 
-		// si sigue null, no guardamos
 		if (empresa == null || empresa.isBlank()) {
 			throw new RuntimeException(
 					"No se pudo determinar la empresa del trabajo (cliente sin empresa y sin header X-Empresa).");
@@ -104,7 +134,6 @@ public class TrabajoController {
 
 		trabajo.setEmpresa(empresa);
 
-		// ✅ guardar
 		return trabajoService.save(trabajo);
 	}
 
@@ -121,7 +150,6 @@ public class TrabajoController {
 
 		trabajo.setProveedor(proveedor);
 
-		// ✅ también aquí conviene asegurar empresa si es NOT NULL
 		if (trabajo.getEmpresa() == null || trabajo.getEmpresa().isBlank()) {
 			trabajo.setEmpresa(proveedor.getEmpresa());
 		}
@@ -135,12 +163,24 @@ public class TrabajoController {
 	}
 
 	@DeleteMapping("/proveedor/{trabajoId}")
+	@Transactional
 	public void eliminarTrabajoProveedor(@PathVariable Long trabajoId) {
 
 		Trabajo trabajo = trabajoService.findById(trabajoId);
 
 		if (trabajo == null) {
 			throw new RuntimeException("Trabajo no encontrado con ID: " + trabajoId);
+		}
+
+		// ✅ también devolvemos stock si venía de producto
+		Long productoId = trabajo.getProductoId();
+		if (productoId != null) {
+			Producto prod = productoRepo.findById(productoId)
+					.orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + productoId));
+
+			int unidades = (trabajo.getUnidades() != null && trabajo.getUnidades() > 0) ? trabajo.getUnidades() : 1;
+			prod.setStock(prod.getStock() + unidades);
+			productoRepo.save(prod);
 		}
 
 		Proveedor proveedor = trabajo.getProveedor();

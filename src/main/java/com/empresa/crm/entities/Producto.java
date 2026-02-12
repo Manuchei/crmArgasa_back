@@ -27,5 +27,11 @@ public class Producto {
 	
 	@Column(nullable = false)
 	private String empresa; //"ARGASA" O "ELECTROLUGA"
+	
+	@Column(name = "precio_sin_iva")
+	private Double precioSinIva = 0.0;
+
+
+
 
 }
