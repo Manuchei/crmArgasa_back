@@ -10,5 +10,6 @@ public class RutaDiaRequestDTO {
     private String emailTransportista;
     private String estado; // opcional (si no viene, "pendiente")
     private List<RutaDiaItemDTO> rutas;
+
     private String empresa; // OBLIGATORIA (ARGASA / ELECTROLUGA)
 }

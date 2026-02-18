@@ -1,9 +1,11 @@
 package com.empresa.crm.entities;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -30,26 +32,28 @@ public class Ruta {
 
 	private String emailTransportista;
 
+	// ✅ ya no es necesario pedirlos desde el front, pero los mantenemos por
+	// compatibilidad
 	private String origen;
+
 	private String destino;
 
 	@Column(name = "empresa", nullable = false, length = 20)
 	private String empresa;
 
-	@ManyToOne
+	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "transportista_id")
+	@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 	private Transportista transportista;
 
-	// ✅ NUEVO: cada ruta pertenece a un cliente
+	// ✅ NUEVO: ruta asignada a cliente
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "cliente_id", nullable = false)
-	@JsonIgnore // evita bucles JSON; si luego quieres mostrar datos del cliente, lo hacemos con
-				// DTO de respuesta
+	@JsonIgnoreProperties({ "trabajos", "albaranes", "pagos", "hibernateLazyInitializer", "handler" })
 	private Cliente cliente;
 
-	// ✅ para que Angular reciba clienteId en JSON
-	@JsonProperty("clienteId")
-	public Long getClienteId() {
-		return (cliente != null) ? cliente.getId() : null;
-	}
+	@OneToMany(mappedBy = "ruta", cascade = CascadeType.ALL, orphanRemoval = true)
+	@JsonManagedReference
+	private List<RutaLinea> lineas = new ArrayList<>();
+
 }

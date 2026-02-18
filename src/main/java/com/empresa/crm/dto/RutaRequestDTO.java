@@ -1,6 +1,7 @@
 package com.empresa.crm.dto;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import lombok.Data;
 
@@ -21,4 +22,6 @@ public class RutaRequestDTO {
 
 	private String tarea;
 	private String observaciones;
+
+	private List<RutaLineaDTO> lineas;
 }

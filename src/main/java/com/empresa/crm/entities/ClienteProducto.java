@@ -16,19 +16,34 @@ import lombok.Data;
 @Entity
 @Table(name = "cliente_producto")
 public class ClienteProducto {
-	
-	@Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
-	
+
 	@ManyToOne(optional = false)
 	@JoinColumn(name = "cliente_id")
 	private Cliente cliente;
-	
+
 	@ManyToOne(optional = false)
 	@JoinColumn(name = "producto_id")
 	private Producto producto;
-	
+
 	@Column(nullable = false)
 	private LocalDateTime fecha = LocalDateTime.now();
+
+	@Column(nullable = false, length = 20)
+	private String estado = "PENDIENTE";
+
+	private LocalDateTime fechaEntrega; // cuando pasa a ENTREGADO
+
+	@Column(nullable = false)
+	private Integer cantidadTotal = 0;
+
+	@Column(nullable = false)
+	private Integer cantidadEntregada = 0;
+
+	@Column(nullable = false)
+	private boolean entregado = false;
 
 }

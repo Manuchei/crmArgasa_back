@@ -1,15 +1,20 @@
 package com.empresa.crm.controllers;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.web.bind.annotation.*;
 
 import com.empresa.crm.dto.RutaDiaRequestDTO;
+import com.empresa.crm.dto.RutaLineaDTO;
 import com.empresa.crm.dto.RutaRequestDTO;
 import com.empresa.crm.entities.Cliente;
+import com.empresa.crm.entities.Producto;
 import com.empresa.crm.entities.Ruta;
+import com.empresa.crm.entities.RutaLinea;
 import com.empresa.crm.repositories.ClienteRepository;
+import com.empresa.crm.repositories.ProductoRepository;
 import com.empresa.crm.services.RutaService;
 
 @RestController
@@ -19,10 +24,12 @@ public class RutaController {
 
 	private final RutaService rutaService;
 	private final ClienteRepository clienteRepo;
+	private final ProductoRepository productoRepo;
 
-	public RutaController(RutaService rutaService, ClienteRepository clienteRepo) {
+	public RutaController(RutaService rutaService, ClienteRepository clienteRepo, ProductoRepository productoRepo) {
 		this.rutaService = rutaService;
 		this.clienteRepo = clienteRepo;
+		this.productoRepo = productoRepo;
 	}
 
 	@GetMapping
@@ -69,6 +76,47 @@ public class RutaController {
 		ruta.setObservaciones(dto.getObservaciones());
 
 		ruta.setEmpresa(empresa);
+
+		// ✅ líneas de productos (opcional)
+		if (dto.getLineas() != null && !dto.getLineas().isEmpty()) {
+
+			List<RutaLinea> lineas = new ArrayList<>();
+
+			for (RutaLineaDTO l : dto.getLineas()) {
+				if (l.getProductoId() == null) {
+					throw new IllegalArgumentException("productoId obligatorio en lineas");
+				}
+				if (l.getCantidad() == null || l.getCantidad() <= 0) {
+					throw new IllegalArgumentException("cantidad > 0 obligatoria en lineas");
+				}
+
+				Producto p = productoRepo.findById(l.getProductoId())
+						.orElseThrow(() -> new RuntimeException("Producto no encontrado: " + l.getProductoId()));
+
+				// ✅ seguridad multiempresa (clave)
+				if (p.getEmpresa() != null && !p.getEmpresa().equalsIgnoreCase(empresa)) {
+					throw new IllegalArgumentException(
+							"El producto " + p.getId() + " no pertenece a la empresa " + empresa);
+				}
+
+				// ✅ opcional pero recomendable: validar que ese cliente tiene ese producto
+				// asignado
+				// clienteProductoRepo.findByClienteIdAndProductoId(dto.getClienteId(),
+				// l.getProductoId())
+				// .orElseThrow(() -> new IllegalArgumentException("El cliente no tiene asignado
+				// ese producto"));
+
+				RutaLinea rl = new RutaLinea();
+				rl.setRuta(ruta);
+				rl.setProducto(p);
+				rl.setCantidad(l.getCantidad());
+				rl.setEstado("PENDIENTE");
+
+				lineas.add(rl);
+			}
+
+			ruta.setLineas(lineas);
+		}
 
 		return rutaService.save(ruta);
 	}

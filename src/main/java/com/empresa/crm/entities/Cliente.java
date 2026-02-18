@@ -1,6 +1,3 @@
-// =======================
-// Cliente.java
-// =======================
 package com.empresa.crm.entities;
 
 import java.util.ArrayList;
@@ -21,6 +18,7 @@ public class Cliente {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Empresa se asigna desde backend (READ_ONLY)
     @Column(nullable = false, length = 100)
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String empresa;
@@ -38,12 +36,61 @@ public class Cliente {
     private Double totalImporte = 0.0;
     private Double totalPagado = 0.0;
 
+    // ---------------------------
+    // Helpers / Getters útiles
+    // ---------------------------
     @Transient
     public Double getSaldo() {
         double importe = (totalImporte != null) ? totalImporte : 0.0;
         double pagado = (totalPagado != null) ? totalPagado : 0.0;
         return importe - pagado;
     }
+
+    /**
+     * ✅ Dirección completa lista para usar en rutas/albaranes.
+     * Ejemplo: "C/ Mayor 12, 36201 Vigo (Pontevedra)"
+     */
+    @Transient
+    public String getDireccionCompleta() {
+        String dir = safe(direccion);
+        String cp = safe(codigoPostal);
+        String pob = safe(poblacion);
+        String prov = safe(provincia);
+
+        StringBuilder sb = new StringBuilder();
+
+        if (!dir.isBlank()) sb.append(dir);
+
+        // ", 36201 Vigo"
+        String cpPob = joinWithSpace(cp, pob).trim();
+        if (!cpPob.isBlank()) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(cpPob);
+        }
+
+        // " (Pontevedra)"
+        if (!prov.isBlank()) {
+            sb.append(" (").append(prov).append(")");
+        }
+
+        return sb.toString().trim();
+    }
+
+    private static String safe(String v) {
+        return v == null ? "" : v.trim();
+    }
+
+    private static String joinWithSpace(String a, String b) {
+        a = safe(a);
+        b = safe(b);
+        if (a.isBlank()) return b;
+        if (b.isBlank()) return a;
+        return a + " " + b;
+    }
+
+    // ---------------------------
+    // Relaciones
+    // ---------------------------
 
     // ✅ Trabajos
     @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
