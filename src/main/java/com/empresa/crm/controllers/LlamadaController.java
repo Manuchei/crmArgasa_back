@@ -63,6 +63,23 @@ public class LlamadaController {
             TenantContext.clear();
         }
     }
+    
+ // ✅ Próximas llamadas (pendientes) por empresa
+    @GetMapping(value = "/proximas", produces = MediaType.APPLICATION_JSON_VALUE)
+    public List<Llamada> getProximas(
+            @RequestParam String empresa,
+            @RequestParam(defaultValue = "10") int limit
+    ) {
+        validarEmpresa(empresa);
+        String e = empresa.trim().toUpperCase();
+
+        try {
+            TenantContext.set(e);
+            return serviceImpl.getProximasPendientesByEmpresa(e, limit);
+        } finally {
+            TenantContext.clear();
+        }
+    }
 
 
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)

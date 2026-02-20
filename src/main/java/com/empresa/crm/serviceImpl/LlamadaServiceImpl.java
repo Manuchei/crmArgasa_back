@@ -6,6 +6,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import com.empresa.crm.dto.EventoCalendarioDTO;
@@ -144,4 +145,14 @@ public class LlamadaServiceImpl implements LlamadaService {
             })
             .collect(Collectors.toList());
     }
+    
+    public List<Llamada> getProximasPendientesByEmpresa(String empresa, int limit) {
+        LocalDateTime ahora = LocalDateTime.now();
+        return repo
+            .findByEmpresaAndEstadoAndFechaAfterOrderByFechaAsc(
+                empresa, "pendiente", ahora, PageRequest.of(0, limit)
+            )
+            .getContent();
+    }
+
 }

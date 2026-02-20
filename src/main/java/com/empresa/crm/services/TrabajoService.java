@@ -17,4 +17,6 @@ public interface TrabajoService {
 	List<Trabajo> findByPagado(boolean pagado);
 
 	List<Trabajo> findByCliente(Long clienteId);
+	
+	void deleteProductoCliente(Long clienteId, Long productoId, String empresa);
 }

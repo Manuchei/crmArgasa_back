@@ -43,89 +43,35 @@ public class ClienteProductoController {
 
 	@PostMapping("/{clienteId}/productos/{productoId}")
 	@Transactional
-	public ResponseEntity<?> addProducto(@PathVariable Long clienteId, @PathVariable Long productoId,
-			@RequestBody(required = false) AddProductoRequest body, HttpServletRequest request) {
+	public Trabajo addProductoCliente(Long clienteId, Long productoId, AddProductoRequest req, String empresa) {
 
-		Cliente c = clienteRepo.findById(clienteId).orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
-
-		Producto p = productoRepo.findById(productoId)
-				.orElseThrow(() -> new RuntimeException("Producto no encontrado"));
-
-		int cantidad = 1;
-		double descuento = 0.0;
-		double importePagado = 0.0;
-
-		if (body != null) {
-			if (body.getCantidad() != null)
-				cantidad = body.getCantidad();
-			if (body.getDescuento() != null)
-				descuento = body.getDescuento();
-			if (body.getImportePagado() != null)
-				importePagado = body.getImportePagado();
-		}
-
+		int cantidad = req.getCantidad() != null ? req.getCantidad() : 1;
 		if (cantidad <= 0)
-			return ResponseEntity.badRequest().body("Cantidad inválida");
-		if (descuento < 0 || descuento > 100)
-			return ResponseEntity.badRequest().body("Descuento inválido (0..100)");
-		if (importePagado < 0)
-			return ResponseEntity.badRequest().body("Importe pagado inválido");
+			cantidad = 1;
 
-		if (p.getStock() < cantidad) {
-			return ResponseEntity.badRequest().body("Sin stock suficiente");
+		Producto p = productoRepo.findById(productoId).orElseThrow(() -> new RuntimeException("Producto no existe"));
+
+		if (!p.getEmpresa().equalsIgnoreCase(empresa)) {
+			throw new RuntimeException("Producto no pertenece a la empresa activa");
 		}
 
-		// ✅ Empresa: header X-Empresa o del cliente
-		String empresaHeader = request.getHeader("X-Empresa");
-		String empresa = (empresaHeader != null && !empresaHeader.isBlank()) ? empresaHeader.trim() : c.getEmpresa();
-
-		if (empresa == null || empresa.isBlank()) {
-			return ResponseEntity.badRequest().body("Empresa no determinada");
+		int updated = productoRepo.decrementStockIfAvailable(productoId, cantidad);
+		if (updated == 0) {
+			throw new RuntimeException("Stock insuficiente");
 		}
 
-		// ✅ Seguridad extra: el producto debe ser de esa empresa
-		// (si tu Producto tiene getEmpresa())
-		if (p.getEmpresa() != null && !empresa.equalsIgnoreCase(p.getEmpresa())) {
-			return ResponseEntity.badRequest().body("El producto no pertenece a la empresa seleccionada");
-		}
-
-		// 1) bajar stock
-		p.setStock(p.getStock() - cantidad);
-		productoRepo.save(p);
-
-		// IVA configurable
-		final double IVA = 0.21;
-
-		// precio del producto sin IVA
-		double precioBase = (p.getPrecioSinIva() != null) ? p.getPrecioSinIva() : 0.0;
-
-		// precio con IVA
-		double precioConIva = Math.round(precioBase * (1 + IVA) * 100.0) / 100.0;
-
-		// 2) crear trabajo asociado
 		Trabajo t = new Trabajo();
-		t.setCliente(c);
-
-		// ✅ CLAVE: guardar productoId para poder devolver stock al eliminar
-		t.setProductoId(p.getId());
-
-		// descripción: nombre del producto
-		t.setDescripcion(p.getNombre());
-
+		t.setCliente(clienteRepo.getReferenceById(clienteId));
+		t.setProductoId(productoId);
 		t.setUnidades(cantidad);
-		t.setPrecioUnitario(precioConIva);
-		t.setDescuento(descuento);
-
-		// pagado inicial
-		t.setImportePagado(importePagado);
-		t.setPagado(false); // se recalcula en @PrePersist/@PreUpdate
-
+		t.setDescuento(req.getDescuento());
+		t.setImportePagado(req.getImportePagado());
 		t.setEmpresa(empresa);
 
-		// ✅ guardamos y devolvemos el trabajo creado
-		Trabajo guardado = trabajoRepo.save(t);
+		// si quieres, descripción automática:
+		t.setDescripcion(p.getNombre());
 
-		return ResponseEntity.ok(guardado);
+		return trabajoRepo.save(t);
 	}
 
 	@GetMapping("/{clienteId}/productos")

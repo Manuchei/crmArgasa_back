@@ -9,6 +9,7 @@ import com.empresa.crm.entities.Producto;
 import com.empresa.crm.entities.Proveedor;
 import com.empresa.crm.entities.Trabajo;
 import com.empresa.crm.repositories.ProductoRepository;
+import com.empresa.crm.repositories.TrabajoRepository;
 import com.empresa.crm.services.ClienteService;
 import com.empresa.crm.services.ProveedorService;
 import com.empresa.crm.services.TrabajoService;
@@ -24,13 +25,15 @@ public class TrabajoController {
 	private final ClienteService clienteService;
 	private final ProveedorService proveedorService;
 	private final ProductoRepository productoRepo;
+	private final TrabajoRepository trabajoRepository;
 
 	public TrabajoController(TrabajoService trabajoService, ClienteService clienteService,
-			ProveedorService proveedorService, ProductoRepository productoRepo) {
+			ProveedorService proveedorService, ProductoRepository productoRepo, TrabajoRepository trabajoRepository) {
 		this.trabajoService = trabajoService;
 		this.clienteService = clienteService;
 		this.proveedorService = proveedorService;
 		this.productoRepo = productoRepo;
+		this.trabajoRepository = trabajoRepository;
 	}
 
 	// -------------------- CRUD GENERAL --------------------
@@ -61,32 +64,14 @@ public class TrabajoController {
 	 * devolvemos stock: stock += unidades
 	 */
 	@DeleteMapping("/{id}")
-	@Transactional
 	public void eliminar(@PathVariable Long id) {
+		Trabajo t = trabajoRepository.findById(id).orElseThrow(() -> new RuntimeException("Trabajo no encontrado"));
 
-		Trabajo trabajo = trabajoService.findById(id);
-		if (trabajo == null) {
-			throw new RuntimeException("Trabajo no encontrado con ID: " + id);
+		if (t.isEntregado()) {
+			throw new IllegalArgumentException("No se puede eliminar: el trabajo ya está entregado.");
 		}
 
-		// ✅ devolver stock si procede
-		Long productoId = trabajo.getProductoId();
-		if (productoId != null) {
-			Producto prod = productoRepo.findById(productoId)
-					.orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + productoId));
-
-			int unidades = (trabajo.getUnidades() != null && trabajo.getUnidades() > 0) ? trabajo.getUnidades() : 1;
-
-			// getStock seguramente es int (no null). Si fuese Integer, esto también
-			// funciona:
-			int actual = prod.getStock();
-			int nuevo = actual + unidades;
-
-			prod.setStock(nuevo);
-			productoRepo.save(prod);
-		}
-
-		trabajoService.deleteById(id);
+		trabajoRepository.deleteById(id);
 	}
 
 	// -------------------- FILTROS --------------------

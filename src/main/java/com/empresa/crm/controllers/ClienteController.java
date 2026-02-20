@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.web.bind.annotation.*;
 
+import com.empresa.crm.dto.ClienteResumenDTO;
 import com.empresa.crm.entities.Cliente;
 import com.empresa.crm.entities.Trabajo;
 import com.empresa.crm.repositories.ClienteRepository;
@@ -15,140 +16,146 @@ import com.empresa.crm.tenant.TenantContext;
 @CrossOrigin(origins = "http://localhost:4200")
 public class ClienteController {
 
-    private final ClienteService clienteService;
-    private final ClienteRepository clienteRepository;
+	private final ClienteService clienteService;
+	private final ClienteRepository clienteRepository;
 
-    public ClienteController(ClienteService clienteService, ClienteRepository clienteRepository) {
-        this.clienteService = clienteService;
-        this.clienteRepository = clienteRepository;
-    }
+	public ClienteController(ClienteService clienteService, ClienteRepository clienteRepository) {
+		this.clienteService = clienteService;
+		this.clienteRepository = clienteRepository;
+	}
 
-    @GetMapping
-    public List<Cliente> listarTodos() {
-        return clienteService.findAll();
-    }
+	@GetMapping
+	public List<ClienteResumenDTO> listarTodos() {
+		String empresa = TenantContext.get();
 
-    @GetMapping("/{id}")
-    public Cliente obtenerPorId(@PathVariable Long id) {
-        return clienteService.findById(id);
-    }
+		if (empresa == null || empresa.isBlank()) {
+			throw new RuntimeException("Empresa no seleccionada (TenantContext vacío).");
+		}
 
-    @PostMapping
-    public Cliente crearCliente(@RequestBody Cliente cliente) {
+		return clienteRepository.findResumenByEmpresa(empresa);
+	}
 
-        // ✅ Empresa SIEMPRE desde TenantContext
-        String empresa = TenantContext.get();
-        if (empresa == null || empresa.isBlank()) {
-            throw new RuntimeException("Empresa no seleccionada (TenantContext vacío).");
-        }
-        cliente.setEmpresa(empresa);
+	@GetMapping("/{id}")
+	public Cliente obtenerPorId(@PathVariable Long id) {
+		return clienteService.findById(id);
+	}
 
-        // ✅ Relación trabajos -> cliente
-        if (cliente.getTrabajos() != null) {
-            for (Trabajo t : cliente.getTrabajos()) {
-                t.setCliente(cliente);
-                // por seguridad multi-tenant (si Trabajo tiene empresa)
-                t.setEmpresa(empresa);
-            }
-        }
+	@PostMapping
+	public Cliente crearCliente(@RequestBody Cliente cliente) {
 
-        // ✅ Recalcular totales
-        double totalImporte = (cliente.getTrabajos() != null)
-                ? cliente.getTrabajos().stream().mapToDouble(t -> t.getImporte() != null ? t.getImporte() : 0.0).sum()
-                : 0.0;
+		// ✅ Empresa SIEMPRE desde TenantContext
+		String empresa = TenantContext.get();
+		if (empresa == null || empresa.isBlank()) {
+			throw new RuntimeException("Empresa no seleccionada (TenantContext vacío).");
+		}
+		cliente.setEmpresa(empresa);
 
-        double totalPagado = (cliente.getTrabajos() != null)
-                ? cliente.getTrabajos().stream().mapToDouble(t -> t.getImportePagado() != null ? t.getImportePagado() : 0.0).sum()
-                : 0.0;
+		// ✅ Relación trabajos -> cliente
+		if (cliente.getTrabajos() != null) {
+			for (Trabajo t : cliente.getTrabajos()) {
+				t.setCliente(cliente);
+				// por seguridad multi-tenant (si Trabajo tiene empresa)
+				t.setEmpresa(empresa);
+			}
+		}
 
-        cliente.setTotalImporte(totalImporte);
-        cliente.setTotalPagado(totalPagado);
+		// ✅ Recalcular totales
+		double totalImporte = (cliente.getTrabajos() != null)
+				? cliente.getTrabajos().stream().mapToDouble(t -> t.getImporte() != null ? t.getImporte() : 0.0).sum()
+				: 0.0;
 
-        return clienteService.save(cliente);
-    }
+		double totalPagado = (cliente.getTrabajos() != null) ? cliente.getTrabajos().stream()
+				.mapToDouble(t -> t.getImportePagado() != null ? t.getImportePagado() : 0.0).sum() : 0.0;
 
-    @PutMapping("/{id}")
-    public Cliente actualizarCliente(@PathVariable Long id, @RequestBody Cliente cliente) {
+		cliente.setTotalImporte(totalImporte);
+		cliente.setTotalPagado(totalPagado);
 
-        String empresa = TenantContext.get();
-        if (empresa == null || empresa.isBlank()) {
-            throw new RuntimeException("Empresa no seleccionada (TenantContext vacío).");
-        }
+		return clienteService.save(cliente);
+	}
 
-        Cliente existente = clienteService.findById(id);
-        if (existente == null) {
-            throw new RuntimeException("Cliente no encontrado");
-        }
+	@PutMapping("/{id}")
+	public Cliente actualizarCliente(@PathVariable Long id, @RequestBody Cliente cliente) {
 
-        // ✅ Mantener empresa del tenant (no la del body)
-        cliente.setId(id);
-        cliente.setEmpresa(empresa);
+		String empresa = TenantContext.get();
+		if (empresa == null || empresa.isBlank()) {
+			throw new RuntimeException("Empresa no seleccionada (TenantContext vacío).");
+		}
 
-        // ✅ Si vienen trabajos, asegurar relación y empresa
-        if (cliente.getTrabajos() != null) {
-            for (Trabajo t : cliente.getTrabajos()) {
-                t.setCliente(cliente);
-                t.setEmpresa(empresa);
-            }
-        }
+		Cliente existente = clienteService.findById(id);
+		if (existente == null) {
+			throw new RuntimeException("Cliente no encontrado");
+		}
 
-        // ✅ Recalcular totales (si no vienen trabajos, conserva)
-        double totalImporte = (cliente.getTrabajos() != null)
-                ? cliente.getTrabajos().stream().mapToDouble(t -> t.getImporte() != null ? t.getImporte() : 0.0).sum()
-                : (existente.getTotalImporte() != null ? existente.getTotalImporte() : 0.0);
+		// ✅ Mantener empresa del tenant (no la del body)
+		cliente.setId(id);
+		cliente.setEmpresa(empresa);
 
-        double totalPagado = (cliente.getTrabajos() != null)
-                ? cliente.getTrabajos().stream().mapToDouble(t -> t.getImportePagado() != null ? t.getImportePagado() : 0.0).sum()
-                : (existente.getTotalPagado() != null ? existente.getTotalPagado() : 0.0);
+		// ✅ Si vienen trabajos, asegurar relación y empresa
+		if (cliente.getTrabajos() != null) {
+			for (Trabajo t : cliente.getTrabajos()) {
+				t.setCliente(cliente);
+				t.setEmpresa(empresa);
+			}
+		}
 
-        cliente.setTotalImporte(totalImporte);
-        cliente.setTotalPagado(totalPagado);
+		// ✅ Recalcular totales (si no vienen trabajos, conserva)
+		double totalImporte = (cliente.getTrabajos() != null)
+				? cliente.getTrabajos().stream().mapToDouble(t -> t.getImporte() != null ? t.getImporte() : 0.0).sum()
+				: (existente.getTotalImporte() != null ? existente.getTotalImporte() : 0.0);
 
-        return clienteService.save(cliente);
-    }
+		double totalPagado = (cliente.getTrabajos() != null)
+				? cliente.getTrabajos().stream()
+						.mapToDouble(t -> t.getImportePagado() != null ? t.getImportePagado() : 0.0).sum()
+				: (existente.getTotalPagado() != null ? existente.getTotalPagado() : 0.0);
 
-    @DeleteMapping("/{id}")
-    public void eliminarCliente(@PathVariable Long id) {
-        clienteService.deleteById(id);
-    }
+		cliente.setTotalImporte(totalImporte);
+		cliente.setTotalPagado(totalPagado);
 
-    @GetMapping("/buscar")
-    public List<Cliente> buscarClientes(@RequestParam String texto) {
+		return clienteService.save(cliente);
+	}
 
-        String empresa = TenantContext.get();
-        if (empresa == null || empresa.isBlank()) {
-            throw new RuntimeException("Empresa no seleccionada (TenantContext vacío).");
-        }
+	@DeleteMapping("/{id}")
+	public void eliminarCliente(@PathVariable Long id) {
+		clienteService.deleteById(id);
+	}
 
-        return clienteRepository.buscarPorTexto(texto, empresa);
-    }
+	@GetMapping("/buscar")
+	public List<Cliente> buscarClientes(@RequestParam String texto) {
 
-    @PostMapping("/{id}/trabajos")
-    public Cliente agregarTrabajo(@PathVariable Long id, @RequestBody Trabajo trabajo) {
+		String empresa = TenantContext.get();
+		if (empresa == null || empresa.isBlank()) {
+			throw new RuntimeException("Empresa no seleccionada (TenantContext vacío).");
+		}
 
-        String empresa = TenantContext.get();
-        if (empresa == null || empresa.isBlank()) {
-            throw new RuntimeException("Empresa no seleccionada (TenantContext vacío).");
-        }
+		return clienteRepository.buscarPorTexto(texto, empresa);
+	}
 
-        Cliente cliente = clienteService.findById(id);
-        if (cliente == null) {
-            throw new RuntimeException("Cliente no encontrado");
-        }
+	@PostMapping("/{id}/trabajos")
+	public Cliente agregarTrabajo(@PathVariable Long id, @RequestBody Trabajo trabajo) {
 
-        trabajo.setCliente(cliente);
-        trabajo.setEmpresa(empresa);
-        cliente.getTrabajos().add(trabajo);
+		String empresa = TenantContext.get();
+		if (empresa == null || empresa.isBlank()) {
+			throw new RuntimeException("Empresa no seleccionada (TenantContext vacío).");
+		}
 
-        double totalImporte = cliente.getTrabajos().stream()
-                .mapToDouble(t -> t.getImporte() != null ? t.getImporte() : 0.0).sum();
+		Cliente cliente = clienteService.findById(id);
+		if (cliente == null) {
+			throw new RuntimeException("Cliente no encontrado");
+		}
 
-        double totalPagado = cliente.getTrabajos().stream()
-                .mapToDouble(t -> t.getImportePagado() != null ? t.getImportePagado() : 0.0).sum();
+		trabajo.setCliente(cliente);
+		trabajo.setEmpresa(empresa);
+		cliente.getTrabajos().add(trabajo);
 
-        cliente.setTotalImporte(totalImporte);
-        cliente.setTotalPagado(totalPagado);
+		double totalImporte = cliente.getTrabajos().stream()
+				.mapToDouble(t -> t.getImporte() != null ? t.getImporte() : 0.0).sum();
 
-        return clienteService.save(cliente);
-    }
+		double totalPagado = cliente.getTrabajos().stream()
+				.mapToDouble(t -> t.getImportePagado() != null ? t.getImportePagado() : 0.0).sum();
+
+		cliente.setTotalImporte(totalImporte);
+		cliente.setTotalPagado(totalPagado);
+
+		return clienteService.save(cliente);
+	}
 }
