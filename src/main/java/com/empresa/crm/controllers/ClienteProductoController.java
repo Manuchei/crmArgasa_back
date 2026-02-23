@@ -18,7 +18,6 @@ import com.empresa.crm.entities.Trabajo;
 import com.empresa.crm.repositories.ClienteRepository;
 import com.empresa.crm.repositories.ProductoRepository;
 import com.empresa.crm.repositories.TrabajoRepository;
-import com.empresa.crm.services.ClienteProductoService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
@@ -28,14 +27,14 @@ import jakarta.transaction.Transactional;
 @CrossOrigin(origins = "http://localhost:4200")
 public class ClienteProductoController {
 
-	private final ClienteProductoService service;
+	private final com.empresa.crm.services.TrabajoService trabajoService;
 	private final ClienteRepository clienteRepo;
 	private final ProductoRepository productoRepo;
 	private final TrabajoRepository trabajoRepo;
 
-	public ClienteProductoController(ClienteProductoService service, ClienteRepository clienteRepo,
-			ProductoRepository productoRepo, TrabajoRepository trabajoRepo) {
-		this.service = service;
+	public ClienteProductoController(com.empresa.crm.services.TrabajoService trabajoService,
+			ClienteRepository clienteRepo, ProductoRepository productoRepo, TrabajoRepository trabajoRepo) {
+		this.trabajoService = trabajoService;
 		this.clienteRepo = clienteRepo;
 		this.productoRepo = productoRepo;
 		this.trabajoRepo = trabajoRepo;
@@ -43,7 +42,23 @@ public class ClienteProductoController {
 
 	@PostMapping("/{clienteId}/productos/{productoId}")
 	@Transactional
-	public Trabajo addProductoCliente(Long clienteId, Long productoId, AddProductoRequest req, String empresa) {
+	public Trabajo addProductoCliente(@PathVariable Long clienteId, @PathVariable Long productoId,
+			@RequestBody(required = false) AddProductoRequest req,
+			@RequestHeader(value = "X-Empresa", required = false) String empresaHeader) {
+
+		if (req == null)
+			req = new AddProductoRequest();
+
+		// empresa: header > cliente
+		Cliente cliente = clienteRepo.findById(clienteId)
+				.orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+
+		String empresa = (empresaHeader != null && !empresaHeader.isBlank()) ? empresaHeader.trim()
+				: cliente.getEmpresa();
+
+		if (empresa == null || empresa.isBlank()) {
+			throw new RuntimeException("Empresa no determinada");
+		}
 
 		int cantidad = req.getCantidad() != null ? req.getCantidad() : 1;
 		if (cantidad <= 0)
@@ -55,20 +70,20 @@ public class ClienteProductoController {
 			throw new RuntimeException("Producto no pertenece a la empresa activa");
 		}
 
-		int updated = productoRepo.decrementStockIfAvailable(productoId, cantidad);
+		int updated = productoRepo.decrementStockIfAvailable(productoId, cantidad, empresa);
 		if (updated == 0) {
 			throw new RuntimeException("Stock insuficiente");
 		}
 
 		Trabajo t = new Trabajo();
-		t.setCliente(clienteRepo.getReferenceById(clienteId));
+		t.setCliente(cliente);
 		t.setProductoId(productoId);
 		t.setUnidades(cantidad);
 		t.setDescuento(req.getDescuento());
 		t.setImportePagado(req.getImportePagado());
 		t.setEmpresa(empresa);
 
-		// si quieres, descripción automática:
+		// descripción automática
 		t.setDescripcion(p.getNombre());
 
 		return trabajoRepo.save(t);
@@ -78,7 +93,6 @@ public class ClienteProductoController {
 	public ResponseEntity<?> getProductosComprados(@PathVariable Long clienteId, HttpServletRequest request) {
 		Cliente c = clienteRepo.findById(clienteId).orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
 
-		// empresa por header o del cliente (igual que en POST)
 		String empresaHeader = request.getHeader("X-Empresa");
 		String empresa = (empresaHeader != null && !empresaHeader.isBlank()) ? empresaHeader.trim() : c.getEmpresa();
 
@@ -86,8 +100,6 @@ public class ClienteProductoController {
 			return ResponseEntity.badRequest().body("Empresa no determinada");
 		}
 
-		// 1) sacar trabajos del cliente (solo los que vienen de productos: productoId
-		// != null)
 		List<Trabajo> trabajos = trabajoRepo.findByClienteIdAndEmpresa(clienteId, empresa).stream()
 				.filter(t -> t.getProductoId() != null).collect(Collectors.toList());
 
@@ -95,7 +107,6 @@ public class ClienteProductoController {
 			return ResponseEntity.ok(List.of());
 		}
 
-		// 2) sumar unidades por productoId
 		Map<Long, Integer> unidadesPorProducto = new HashMap<>();
 		for (Trabajo t : trabajos) {
 			Long pid = t.getProductoId();
@@ -103,7 +114,6 @@ public class ClienteProductoController {
 			unidadesPorProducto.merge(pid, u, Integer::sum);
 		}
 
-		// 3) traer productos y construir DTO
 		List<Long> ids = new ArrayList<>(unidadesPorProducto.keySet());
 		List<Producto> productos = productoRepo.findAllById(ids);
 
@@ -116,4 +126,23 @@ public class ClienteProductoController {
 		return ResponseEntity.ok(res);
 	}
 
+	/**
+	 * ✅ ELIMINAR producto del cliente (borra un trabajo pendiente asociado a ese
+	 * producto) y repone stock.
+	 */
+	@DeleteMapping("/{clienteId}/productos/{productoId}")
+	public ResponseEntity<Void> deleteProductoCliente(@PathVariable Long clienteId, @PathVariable Long productoId,
+			@RequestHeader(value = "X-Empresa", required = false) String empresaHeader) {
+
+		Cliente c = clienteRepo.findById(clienteId).orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+
+		String empresa = (empresaHeader != null && !empresaHeader.isBlank()) ? empresaHeader.trim() : c.getEmpresa();
+
+		if (empresa == null || empresa.isBlank()) {
+			throw new RuntimeException("Empresa no determinada");
+		}
+
+		trabajoService.deleteProductoCliente(clienteId, productoId, empresa);
+		return ResponseEntity.noContent().build();
+	}
 }

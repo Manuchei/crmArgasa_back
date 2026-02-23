@@ -4,12 +4,10 @@ import java.util.List;
 
 import org.springframework.web.bind.annotation.*;
 
+import com.empresa.crm.dto.TrabajoDTO;
 import com.empresa.crm.entities.Cliente;
-import com.empresa.crm.entities.Producto;
 import com.empresa.crm.entities.Proveedor;
 import com.empresa.crm.entities.Trabajo;
-import com.empresa.crm.repositories.ProductoRepository;
-import com.empresa.crm.repositories.TrabajoRepository;
 import com.empresa.crm.services.ClienteService;
 import com.empresa.crm.services.ProveedorService;
 import com.empresa.crm.services.TrabajoService;
@@ -24,16 +22,12 @@ public class TrabajoController {
 	private final TrabajoService trabajoService;
 	private final ClienteService clienteService;
 	private final ProveedorService proveedorService;
-	private final ProductoRepository productoRepo;
-	private final TrabajoRepository trabajoRepository;
 
 	public TrabajoController(TrabajoService trabajoService, ClienteService clienteService,
-			ProveedorService proveedorService, ProductoRepository productoRepo, TrabajoRepository trabajoRepository) {
+			ProveedorService proveedorService) {
 		this.trabajoService = trabajoService;
 		this.clienteService = clienteService;
 		this.proveedorService = proveedorService;
-		this.productoRepo = productoRepo;
-		this.trabajoRepository = trabajoRepository;
 	}
 
 	// -------------------- CRUD GENERAL --------------------
@@ -61,17 +55,11 @@ public class TrabajoController {
 
 	/**
 	 * ✅ ELIMINAR TRABAJO Si el trabajo viene de un producto (productoId != null),
-	 * devolvemos stock: stock += unidades
+	 * el service repone stock.
 	 */
 	@DeleteMapping("/{id}")
 	public void eliminar(@PathVariable Long id) {
-		Trabajo t = trabajoRepository.findById(id).orElseThrow(() -> new RuntimeException("Trabajo no encontrado"));
-
-		if (t.isEntregado()) {
-			throw new IllegalArgumentException("No se puede eliminar: el trabajo ya está entregado.");
-		}
-
-		trabajoRepository.deleteById(id);
+		trabajoService.deleteById(id);
 	}
 
 	// -------------------- FILTROS --------------------
@@ -87,8 +75,8 @@ public class TrabajoController {
 	}
 
 	@GetMapping("/cliente/{clienteId}")
-	public List<Trabajo> listarPorCliente(@PathVariable Long clienteId) {
-		return trabajoService.findByCliente(clienteId);
+	public List<TrabajoDTO> listarPorCliente(@PathVariable Long clienteId) {
+		return trabajoService.findDtoByCliente(clienteId);
 	}
 
 	// -------------------- CLIENTES --------------------
@@ -97,24 +85,18 @@ public class TrabajoController {
 			@RequestHeader(value = "X-Empresa", required = false) String empresaHeader) {
 
 		Cliente cliente = clienteService.findById(clienteId);
-
 		if (cliente == null) {
 			throw new RuntimeException("Cliente no encontrado con ID: " + clienteId);
 		}
 
-		// ✅ asociar cliente al trabajo
 		trabajo.setCliente(cliente);
 
-		// ✅ empresa obligatoria (NOT NULL en BD)
 		String empresa = cliente.getEmpresa();
-
 		if ((empresa == null || empresa.isBlank()) && empresaHeader != null && !empresaHeader.isBlank()) {
 			empresa = empresaHeader.trim();
 		}
-
 		if (empresa == null || empresa.isBlank()) {
-			throw new RuntimeException(
-					"No se pudo determinar la empresa del trabajo (cliente sin empresa y sin header X-Empresa).");
+			throw new RuntimeException("No se pudo determinar la empresa del trabajo.");
 		}
 
 		trabajo.setEmpresa(empresa);
@@ -128,7 +110,6 @@ public class TrabajoController {
 	public Trabajo crearTrabajoParaProveedor(@PathVariable Long proveedorId, @RequestBody Trabajo trabajo) {
 
 		Proveedor proveedor = proveedorService.findById(proveedorId);
-
 		if (proveedor == null) {
 			throw new RuntimeException("Proveedor no encontrado con ID: " + proveedorId);
 		}
@@ -152,27 +133,18 @@ public class TrabajoController {
 	public void eliminarTrabajoProveedor(@PathVariable Long trabajoId) {
 
 		Trabajo trabajo = trabajoService.findById(trabajoId);
-
 		if (trabajo == null) {
 			throw new RuntimeException("Trabajo no encontrado con ID: " + trabajoId);
 		}
 
-		// ✅ también devolvemos stock si venía de producto
-		Long productoId = trabajo.getProductoId();
-		if (productoId != null) {
-			Producto prod = productoRepo.findById(productoId)
-					.orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + productoId));
-
-			int unidades = (trabajo.getUnidades() != null && trabajo.getUnidades() > 0) ? trabajo.getUnidades() : 1;
-			prod.setStock(prod.getStock() + unidades);
-			productoRepo.save(prod);
-		}
-
 		Proveedor proveedor = trabajo.getProveedor();
 
+		// ✅ IMPORTANTE: el service ya repone stock si productoId != null
 		trabajoService.deleteById(trabajoId);
 
-		proveedor.getTrabajos().remove(trabajo);
-		proveedorService.save(proveedor);
+		if (proveedor != null) {
+			proveedor.getTrabajos().remove(trabajo);
+			proveedorService.save(proveedor);
+		}
 	}
 }

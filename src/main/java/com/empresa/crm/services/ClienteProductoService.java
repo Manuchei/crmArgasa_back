@@ -48,7 +48,7 @@ public class ClienteProductoService {
 		// ✅ Baja stock de forma segura (solo si hay stock)
 		int cantidad = (request.getCantidad() != null && request.getCantidad() > 0) ? request.getCantidad() : 1;
 
-		int updated = productoRepo.decrementStockIfAvailable(productoId, cantidad);
+		int updated = productoRepo.decrementStockIfAvailable(productoId, cantidad, empresa);
 		if (updated == 0) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Sin stock disponible");
 		}

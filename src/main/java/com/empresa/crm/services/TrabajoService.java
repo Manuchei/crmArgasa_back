@@ -1,6 +1,8 @@
 package com.empresa.crm.services;
 
 import java.util.List;
+
+import com.empresa.crm.dto.TrabajoDTO;
 import com.empresa.crm.entities.Trabajo;
 
 public interface TrabajoService {
@@ -19,4 +21,6 @@ public interface TrabajoService {
 	List<Trabajo> findByCliente(Long clienteId);
 	
 	void deleteProductoCliente(Long clienteId, Long productoId, String empresa);
+	
+	List<TrabajoDTO> findDtoByCliente(Long clienteId);
 }
