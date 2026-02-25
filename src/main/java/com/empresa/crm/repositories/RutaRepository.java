@@ -56,4 +56,35 @@ public interface RutaRepository extends JpaRepository<Ruta, Long> {
 	// ✅ para cerrar ruta y tener líneas cargadas (si no, puede venir vacío)
 	@EntityGraph(attributePaths = { "cliente", "lineas", "lineas.producto" })
 	Optional<Ruta> findWithLineasByIdAndEmpresa(Long id, String empresa);
+
+	@Query("""
+				select coalesce(sum(l.cantidad), 0)
+				from Ruta r
+				join r.lineas l
+				where r.empresa = :empresa
+				  and r.fecha = :fecha
+				  and l.producto.id = :productoId
+				  and lower(coalesce(r.estado,'')) <> 'cerrada'
+			""")
+	Integer sumReservadoProductoFecha(@Param("empresa") String empresa, @Param("fecha") LocalDate fecha,
+			@Param("productoId") Long productoId);
+
+	/**
+	 * Suma de cantidad reservada de un producto para un cliente en una fecha en
+	 * rutas NO cerradas. (Esto evita “entregar varias veces el mismo producto” en
+	 * el día si ya está en otras rutas abiertas)
+	 */
+	@Query("""
+				select coalesce(sum(l.cantidad), 0)
+				from Ruta r
+				join r.lineas l
+				where r.empresa = :empresa
+				  and r.fecha = :fecha
+				  and r.cliente.id = :clienteId
+				  and l.producto.id = :productoId
+				  and lower(coalesce(r.estado,'')) <> 'cerrada'
+			""")
+	Integer sumReservadoClienteProductoFecha(@Param("empresa") String empresa, @Param("fecha") LocalDate fecha,
+			@Param("clienteId") Long clienteId, @Param("productoId") Long productoId);
+
 }

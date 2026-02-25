@@ -79,14 +79,14 @@ public class ClienteProductoController {
 		t.setCliente(cliente);
 		t.setProductoId(productoId);
 		t.setUnidades(cantidad);
-		t.setDescuento(req.getDescuento());
-		t.setImportePagado(req.getImportePagado());
+		t.setDescuento(req.getDescuento() !=null ? req.getDescuento() : 0.0);
+		t.setImportePagado(req.getImportePagado() !=null ? req.getImportePagado() : 0.0);
 		t.setEmpresa(empresa);
 
 		// descripción automática
 		t.setDescripcion(p.getNombre());
 
-		return trabajoRepo.save(t);
+		return trabajoService.save(t);
 	}
 
 	@GetMapping("/{clienteId}/productos")

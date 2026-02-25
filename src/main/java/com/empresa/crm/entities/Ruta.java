@@ -56,4 +56,7 @@ public class Ruta {
 	@JsonManagedReference
 	private List<RutaLinea> lineas = new ArrayList<>();
 
+	@OneToMany(mappedBy = "ruta", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<RutaProducto> productos = new ArrayList<>();
+
 }
