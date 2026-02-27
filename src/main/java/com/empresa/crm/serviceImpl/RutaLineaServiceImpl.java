@@ -11,6 +11,7 @@ import com.empresa.crm.entities.RutaLinea;
 import com.empresa.crm.repositories.ClienteProductoRepository;
 import com.empresa.crm.repositories.RutaLineaRepository;
 import com.empresa.crm.services.RutaLineaService;
+import com.empresa.crm.tenant.TenantContext;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,35 +24,61 @@ public class RutaLineaServiceImpl implements RutaLineaService {
 
 	@Override
 	public List<RutaLinea> findByRuta(Long rutaId) {
-		return rutaLineaRepo.findByRutaId(rutaId);
+		final String empresa = TenantContext.get();
+		return rutaLineaRepo.findByRutaIdAndRutaEmpresa(rutaId, empresa);
 	}
 
 	@Override
 	@Transactional
 	public void confirmarEntrega(Long rutaLineaId) {
 
-		RutaLinea linea = rutaLineaRepo.findById(rutaLineaId)
-				.orElseThrow(() -> new RuntimeException("Línea no encontrada: " + rutaLineaId));
+		final String empresa = TenantContext.get();
+
+		// ✅ Cargar la línea validando empresa (ruta.empresa)
+		RutaLinea linea = rutaLineaRepo.findByIdAndRutaEmpresa(rutaLineaId, empresa).orElseThrow(
+				() -> new RuntimeException("Línea no encontrada o no pertenece a " + empresa + ": " + rutaLineaId));
 
 		if ("ENTREGADO".equalsIgnoreCase(linea.getEstado())) {
-			return; // ya estaba confirmada
+			return;
 		}
 
 		linea.setEstado("ENTREGADO");
 		linea.setFechaEntrega(LocalDateTime.now());
 		rutaLineaRepo.save(linea);
 
+		if (linea.getRuta() == null || linea.getRuta().getCliente() == null
+				|| linea.getRuta().getCliente().getId() == null) {
+			throw new IllegalArgumentException("La ruta no tiene cliente válido");
+		}
+		if (linea.getProducto() == null || linea.getProducto().getId() == null) {
+			throw new IllegalArgumentException("La línea no tiene producto válido");
+		}
+
 		Long clienteId = linea.getRuta().getCliente().getId();
 		Long productoId = linea.getProducto().getId();
 
-		ClienteProducto cp = clienteProductoRepo.findByClienteIdAndProductoId(clienteId, productoId)
-				.orElseThrow(() -> new RuntimeException(
-						"ClienteProducto no existe para cliente " + clienteId + " y producto " + productoId));
+		// ✅ ClienteProducto filtrado por empresa (aquí sí existe campo empresa)
+		ClienteProducto cp = clienteProductoRepo.findByEmpresaAndClienteIdAndProductoId(empresa, clienteId, productoId)
+				.orElseThrow(() -> new RuntimeException("ClienteProducto no existe para cliente " + clienteId
+						+ " y producto " + productoId + " en " + empresa));
 
-		// ✅ mínimo: marcar entregado
-		cp.setEstado("ENTREGADO");
+		// ✅ Sumar entrega (sin pasarse)
+		int cantidadLinea = safeInt(linea.getCantidad());
+		int entregada = safeInt(cp.getCantidadEntregada());
+		int total = safeInt(cp.getCantidadTotal());
+
+		int nuevaEntregada = entregada + Math.max(0, cantidadLinea);
+		cp.setCantidadEntregada(nuevaEntregada);
 		cp.setFechaEntrega(LocalDateTime.now());
 
+		boolean entregadoCompleto = (total > 0) && (nuevaEntregada >= total);
+		cp.setEntregado(entregadoCompleto);
+		cp.setEstado(entregadoCompleto ? "ENTREGADO" : "PARCIAL");
+
 		clienteProductoRepo.save(cp);
+	}
+
+	private int safeInt(Integer n) {
+		return n == null ? 0 : n.intValue();
 	}
 }

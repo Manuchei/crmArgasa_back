@@ -97,4 +97,5 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
 			    ORDER BY c.nombreApellidos ASC
 			""")
 	List<ClienteResumenDTO> findResumenByEmpresa(@Param("empresa") String empresa);
+
 }

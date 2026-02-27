@@ -49,4 +49,6 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
 			    WHERE p.id = :id
 			""")
 	int incrementStock(@Param("id") Long id, @Param("cantidad") int cantidad);
+
+	Optional<Producto> findByIdAndEmpresa(Long id, String empresa);
 }

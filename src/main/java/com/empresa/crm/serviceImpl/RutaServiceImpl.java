@@ -23,6 +23,7 @@ import com.empresa.crm.repositories.ProductoRepository;
 import com.empresa.crm.repositories.RutaRepository;
 import com.empresa.crm.repositories.TrabajoRepository;
 import com.empresa.crm.scheduler.RutaScheduler;
+import com.empresa.crm.services.ClienteProductoService;
 import com.empresa.crm.services.RutaService;
 import com.empresa.crm.tenant.TenantContext;
 
@@ -38,6 +39,9 @@ public class RutaServiceImpl implements RutaService {
 	private final TrabajoRepository trabajoRepository;
 	private final ProductoRepository productoRepository;
 	private final RutaScheduler rutaScheduler;
+
+	// ✅ Para auto-crear asignaciones y evitar SQL manual del cliente
+	private final ClienteProductoService clienteProductoService;
 
 	@Override
 	public List<Ruta> findAll() {
@@ -59,8 +63,9 @@ public class RutaServiceImpl implements RutaService {
 			throw new IllegalArgumentException("Cliente obligatorio en la ruta");
 		}
 
-		Cliente c = clienteRepository.findById(ruta.getCliente().getId())
-				.orElseThrow(() -> new IllegalArgumentException("Cliente no encontrado"));
+		// ✅ Cliente SIEMPRE por empresa
+		Cliente c = clienteRepository.findByIdAndEmpresa(ruta.getCliente().getId(), ruta.getEmpresa()).orElseThrow(
+				() -> new IllegalArgumentException("Cliente no encontrado en empresa " + ruta.getEmpresa()));
 
 		ruta.setCliente(c);
 
@@ -101,9 +106,6 @@ public class RutaServiceImpl implements RutaService {
 		return rutaRepository.findByEmpresaAndFecha(TenantContext.get(), fecha);
 	}
 
-	/**
-	 * ✅ Cierra la ruta y marca entregas en cliente_producto + trabajos
-	 */
 	@Override
 	@Transactional
 	public Ruta cerrarRuta(Long id) {
@@ -119,7 +121,6 @@ public class RutaServiceImpl implements RutaService {
 
 		ruta.setEstado("cerrada");
 
-		// ✅ marcar entregas (cliente_producto y trabajos)
 		marcarEntregasClienteProductoYTrabajos(ruta, empresa);
 
 		return rutaRepository.save(ruta);
@@ -144,12 +145,12 @@ public class RutaServiceImpl implements RutaService {
 			if (cantidadEntregadaEnRuta <= 0)
 				continue;
 
-			ClienteProducto cp = clienteProductoRepository.findByClienteIdAndProductoId(clienteId, productoId)
-					.orElse(null);
+			// ✅ Buscar asignación filtrando por empresa
+			ClienteProducto cp = clienteProductoRepository
+					.findByEmpresaAndClienteIdAndProductoId(empresa, clienteId, productoId).orElse(null);
+
 			if (cp == null)
 				continue;
-
-			// ✅ si ya está entregado completo, no vuelvas a sumar
 			if (isEntregadoCompleto(cp))
 				continue;
 
@@ -162,7 +163,6 @@ public class RutaServiceImpl implements RutaService {
 			if (pendiente <= 0)
 				continue;
 
-			// ✅ cap: nunca sumar más de lo pendiente
 			int aSumar = Math.min(cantidadEntregadaEnRuta, pendiente);
 
 			int nuevaEntregada = entregada + aSumar;
@@ -187,15 +187,6 @@ public class RutaServiceImpl implements RutaService {
 		}
 	}
 
-	/**
-	 * ✅ Crea rutas del día con BLOQUEO REAL: - Pendiente REAL = total - entregado -
-	 * reservado(en rutas NO cerradas de esa fecha) - Stock REAL = stock -
-	 * reservado(total en rutas NO cerradas de esa fecha)
-	 *
-	 * ✅ IMPORTANTE: se fuerza el TenantContext al "empresa" del request para evitar
-	 * inconsistencias (caso: UI muestra asignación, pero al guardar dice "no tiene
-	 * asignado").
-	 */
 	@Override
 	@Transactional
 	public List<Ruta> crearRutasDeUnDia(RutaDiaRequestDTO request) {
@@ -208,166 +199,196 @@ public class RutaServiceImpl implements RutaService {
 			throw new IllegalArgumentException("Empresa obligatoria (ARGASA / ELECTROLUGA)");
 		}
 
-		// ✅ CLAVE: asegurar tenant correcto en este hilo/request
 		final String tenantPrevio = TenantContext.get();
 		TenantContext.set(empresa);
 
 		try {
-
-			if (request.getFecha() == null || request.getFecha().isBlank()) {
-				throw new IllegalArgumentException("Fecha obligatoria");
-			}
-
-			final LocalDate fechaRuta = parseFecha(request.getFecha());
-
-			if (request.getNombreTransportista() == null || request.getNombreTransportista().isBlank()) {
-				throw new IllegalArgumentException("Nombre de transportista obligatorio");
-			}
-
-			if (request.getRutas() == null || request.getRutas().isEmpty()) {
-				throw new IllegalArgumentException("Debe haber al menos una ruta");
-			}
-
-			final String estadoGlobal = (request.getEstado() != null && !request.getEstado().isBlank())
-					? request.getEstado().trim()
-					: "pendiente";
-
-			List<Ruta> aGuardar = new ArrayList<>();
-
-			for (RutaDiaItemDTO item : request.getRutas()) {
-
-				if (item == null)
-					continue;
-
-				if (item.getClienteId() == null) {
-					throw new IllegalArgumentException("clienteId obligatorio en cada fila");
-				}
-
-				Cliente c = clienteRepository.findById(item.getClienteId()).orElseThrow(
-						() -> new IllegalArgumentException("Cliente no encontrado: " + item.getClienteId()));
-
-				Ruta r = new Ruta();
-				r.setEmpresa(empresa);
-				r.setFecha(fechaRuta);
-				r.setNombreTransportista(request.getNombreTransportista());
-				r.setEmailTransportista(request.getEmailTransportista());
-
-				String estadoFinal = (item.getEstado() != null && !item.getEstado().isBlank()) ? item.getEstado().trim()
-						: estadoGlobal;
-				r.setEstado(estadoFinal);
-
-				r.setCliente(c);
-				r.setTarea(item.getTarea());
-				r.setObservaciones(item.getObservaciones());
-
-				if (r.getDestino() == null || r.getDestino().isBlank()) {
-					r.setDestino(buildDireccionCompleta(c));
-				}
-
-				// ✅ LINEAS (productos)
-				if (item.getProductos() != null && !item.getProductos().isEmpty()) {
-					if (r.getLineas() == null)
-						r.setLineas(new ArrayList<>());
-
-					for (var p : item.getProductos()) {
-
-						if (p == null || p.getProducto() == null)
-							continue;
-
-						int cantSolicitada = safeInt(p.getCantidad());
-						if (cantSolicitada <= 0)
-							continue;
-
-						Long productoId = p.getProducto();
-
-						// ✅ Producto
-						Producto prod = productoRepository.findById(productoId).orElseThrow(
-								() -> new IllegalArgumentException("Producto no encontrado: " + productoId));
-
-						// ✅ ClienteProducto (asignación)
-						ClienteProducto cp = clienteProductoRepository
-								.findByClienteIdAndProductoId(item.getClienteId(), productoId)
-								.orElseThrow(() -> new IllegalArgumentException("El cliente " + item.getClienteId()
-										+ " no tiene asignado el producto " + productoId));
-
-						// ✅ si ya ENTREGADO completo -> no permitir
-						if (isEntregadoCompleto(cp)) {
-							throw new IllegalArgumentException("El producto " + productoId
-									+ " ya está ENTREGADO para el cliente " + item.getClienteId());
-						}
-
-						int totalAsignado = safeInt(cp.getCantidadTotal());
-						int entregado = safeInt(cp.getCantidadEntregada());
-
-						if (totalAsignado <= 0) {
-							throw new IllegalArgumentException(
-									"No se puede validar cantidad: cantidadTotal no definida para cliente "
-											+ item.getClienteId() + " y producto " + productoId);
-						}
-
-						// ✅ RESERVADO (cliente+producto en rutas NO cerradas esa fecha)
-						int reservadoCliente = safeInt(rutaRepository.sumReservadoClienteProductoFecha(empresa,
-								fechaRuta, item.getClienteId(), productoId));
-
-						int pendienteReal = totalAsignado - entregado - reservadoCliente;
-						if (pendienteReal <= 0) {
-							throw new IllegalArgumentException("Sin pendiente: el producto " + productoId
-									+ " no tiene pendiente REAL para el cliente " + item.getClienteId()
-									+ " (pendiente real=" + pendienteReal + ")");
-						}
-
-						if (cantSolicitada > pendienteReal) {
-							throw new IllegalArgumentException("Cantidad solicitada (" + cantSolicitada
-									+ ") supera la pendiente REAL (" + pendienteReal + ") para cliente "
-									+ item.getClienteId() + " y producto " + productoId);
-						}
-
-						// ✅ STOCK REAL: stock - reservado total del producto en rutas NO cerradas esa
-						// fecha
-						int stock = safeInt(prod.getStock());
-						int reservadoProducto = safeInt(
-								rutaRepository.sumReservadoProductoFecha(empresa, fechaRuta, productoId));
-
-						int stockReal = stock - reservadoProducto;
-						if (stockReal <= 0) {
-							throw new IllegalArgumentException("Sin stock REAL para producto " + productoId + " (stock="
-									+ stock + ", reservado=" + reservadoProducto + ")");
-						}
-
-						if (cantSolicitada > stockReal) {
-							throw new IllegalArgumentException("Cantidad solicitada (" + cantSolicitada
-									+ ") supera el stock REAL (" + stockReal + ") para producto " + productoId);
-						}
-
-						// ✅ crear línea
-						RutaLinea linea = new RutaLinea();
-						linea.setRuta(r);
-						linea.setProducto(prod);
-						linea.setCantidad(cantSolicitada);
-						linea.setEstado("PENDIENTE");
-						r.getLineas().add(linea);
-					}
-				}
-
-				aGuardar.add(r);
-			}
-
-			List<Ruta> guardadas = rutaRepository.saveAll(aGuardar);
-
-			LocalDate hoy = LocalDate.now();
-			LocalTime ahora = LocalTime.now();
-			if (fechaRuta.isEqual(hoy) && ahora.isAfter(LocalTime.of(8, 0))) {
-				rutaScheduler.enviarActualizacionHoy(request.getNombreTransportista());
-			}
-
-			return guardadas;
-
+			return crearRutasDeUnDiaCore(request, empresa);
 		} finally {
-			// ✅ restaurar tenant anterior (evita que el hilo se quede “pegado” a una
-			// empresa)
 			if (tenantPrevio == null || tenantPrevio.isBlank()) {
-				// si tienes clear() úsalo, si no, deja set("") o set(null) según tu
-				// implementación
+				try {
+					TenantContext.clear();
+				} catch (Exception ex) {
+					TenantContext.set(tenantPrevio);
+				}
+			} else {
+				TenantContext.set(tenantPrevio);
+			}
+		}
+	}
+
+	/**
+	 * Implementación real (separa lógica para poder reutilizarla en
+	 * crearRutasDeUnDiaTx)
+	 */
+	private List<Ruta> crearRutasDeUnDiaCore(RutaDiaRequestDTO request, String empresa) {
+
+		if (request.getFecha() == null || request.getFecha().isBlank()) {
+			throw new IllegalArgumentException("Fecha obligatoria");
+		}
+		final LocalDate fechaRuta = parseFecha(request.getFecha());
+
+		if (request.getNombreTransportista() == null || request.getNombreTransportista().isBlank()) {
+			throw new IllegalArgumentException("Nombre de transportista obligatorio");
+		}
+
+		if (request.getRutas() == null || request.getRutas().isEmpty()) {
+			throw new IllegalArgumentException("Debe haber al menos una ruta");
+		}
+
+		final String estadoGlobal = (request.getEstado() != null && !request.getEstado().isBlank())
+				? request.getEstado().trim()
+				: "pendiente";
+
+		List<Ruta> aGuardar = new ArrayList<>();
+
+		for (RutaDiaItemDTO item : request.getRutas()) {
+			if (item == null)
+				continue;
+
+			if (item.getClienteId() == null) {
+				throw new IllegalArgumentException("clienteId obligatorio en cada fila");
+			}
+
+			// ✅ Cliente SIEMPRE por empresa
+			Cliente c = clienteRepository.findByIdAndEmpresa(item.getClienteId(), empresa)
+					.orElseThrow(() -> new IllegalArgumentException(
+							"Cliente no encontrado: " + item.getClienteId() + " en empresa " + empresa));
+
+			Ruta r = new Ruta();
+			r.setEmpresa(empresa);
+			r.setFecha(fechaRuta);
+			r.setNombreTransportista(request.getNombreTransportista());
+			r.setEmailTransportista(request.getEmailTransportista());
+
+			String estadoFinal = (item.getEstado() != null && !item.getEstado().isBlank()) ? item.getEstado().trim()
+					: estadoGlobal;
+			r.setEstado(estadoFinal);
+
+			r.setCliente(c);
+			r.setTarea(item.getTarea());
+			r.setObservaciones(item.getObservaciones());
+
+			if (r.getDestino() == null || r.getDestino().isBlank()) {
+				r.setDestino(buildDireccionCompleta(c));
+			}
+
+			// ✅ LINEAS
+			if (item.getProductos() != null && !item.getProductos().isEmpty()) {
+				if (r.getLineas() == null)
+					r.setLineas(new ArrayList<>());
+
+				for (var p : item.getProductos()) {
+
+					if (p == null || p.getProducto() == null)
+						continue;
+
+					int cantSolicitada = safeInt(p.getCantidad());
+					if (cantSolicitada <= 0)
+						continue;
+
+					Long productoId = p.getProducto();
+
+					// ✅ Producto SIEMPRE por empresa (evita mezclar ARGASA/ELECTROLUGA)
+					Producto prod = productoRepository.findByIdAndEmpresa(productoId, empresa)
+							.orElseThrow(() -> new IllegalArgumentException(
+									"Producto no encontrado: " + productoId + " en empresa " + empresa));
+
+					// ✅ Auto-crea asignación si no existe (evita SQL manual del cliente)
+					ClienteProducto cp = clienteProductoService.ensureAsignacion(c.getId(), prod.getId(),
+							cantSolicitada);
+
+					if (isEntregadoCompleto(cp)) {
+						throw new IllegalArgumentException(
+								"El producto " + productoId + " ya está ENTREGADO para el cliente "
+										+ item.getClienteId() + " en empresa " + empresa);
+					}
+
+					int totalAsignado = safeInt(cp.getCantidadTotal());
+					int entregado = safeInt(cp.getCantidadEntregada());
+
+					if (totalAsignado <= 0) {
+						throw new IllegalArgumentException(
+								"No se puede validar cantidad: cantidadTotal no definida para cliente "
+										+ item.getClienteId() + " y producto " + productoId + " en empresa " + empresa);
+					}
+
+					int reservadoCliente = safeInt(rutaRepository.sumReservadoClienteProductoFecha(empresa, fechaRuta,
+							item.getClienteId(), productoId));
+
+					int pendienteReal = totalAsignado - entregado - reservadoCliente;
+					if (pendienteReal <= 0) {
+						throw new IllegalArgumentException("Sin pendiente: el producto " + productoId
+								+ " no tiene pendiente REAL para el cliente " + item.getClienteId() + " en empresa "
+								+ empresa + " (pendiente real=" + pendienteReal + ")");
+					}
+
+					if (cantSolicitada > pendienteReal) {
+						throw new IllegalArgumentException("Cantidad solicitada (" + cantSolicitada
+								+ ") supera la pendiente REAL (" + pendienteReal + ") para cliente "
+								+ item.getClienteId() + " y producto " + productoId + " en empresa " + empresa);
+					}
+
+					int stock = safeInt(prod.getStock());
+					int reservadoProducto = safeInt(
+							rutaRepository.sumReservadoProductoFecha(empresa, fechaRuta, productoId));
+
+					int stockReal = stock - reservadoProducto;
+					if (stockReal <= 0) {
+						throw new IllegalArgumentException("Sin stock REAL para producto " + productoId + " en empresa "
+								+ empresa + " (stock=" + stock + ", reservado=" + reservadoProducto + ")");
+					}
+
+					if (cantSolicitada > stockReal) {
+						throw new IllegalArgumentException(
+								"Cantidad solicitada (" + cantSolicitada + ") supera el stock REAL (" + stockReal
+										+ ") para producto " + productoId + " en empresa " + empresa);
+					}
+
+					RutaLinea linea = new RutaLinea();
+					linea.setRuta(r);
+					linea.setProducto(prod);
+					linea.setCantidad(cantSolicitada);
+					linea.setEstado("PENDIENTE");
+					r.getLineas().add(linea);
+				}
+			}
+
+			aGuardar.add(r);
+		}
+
+		List<Ruta> guardadas = rutaRepository.saveAll(aGuardar);
+
+		LocalDate hoy = LocalDate.now();
+		LocalTime ahora = LocalTime.now();
+		if (fechaRuta.isEqual(hoy) && ahora.isAfter(LocalTime.of(8, 0))) {
+			rutaScheduler.enviarActualizacionHoy(request.getNombreTransportista());
+		}
+
+		return guardadas;
+	}
+
+	/**
+	 * Si tu interfaz lo exige, aquí tienes una implementación funcional. (Usa
+	 * empresa explícita, fuerza TenantContext y delega en la core.)
+	 */
+	@Override
+	@Transactional
+	public List<Ruta> crearRutasDeUnDiaTx(RutaDiaRequestDTO request, String empresa) {
+		if (empresa == null || empresa.isBlank()) {
+			empresa = TenantContext.get();
+		}
+		if (empresa == null || empresa.isBlank()) {
+			throw new IllegalArgumentException("Empresa obligatoria (ARGASA / ELECTROLUGA)");
+		}
+
+		final String tenantPrevio = TenantContext.get();
+		TenantContext.set(empresa);
+
+		try {
+			return crearRutasDeUnDiaCore(request, empresa);
+		} finally {
+			if (tenantPrevio == null || tenantPrevio.isBlank()) {
 				try {
 					TenantContext.clear();
 				} catch (Exception ex) {

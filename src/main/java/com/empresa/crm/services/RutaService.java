@@ -23,6 +23,9 @@ public interface RutaService {
 	List<Ruta> findByFecha(LocalDate fecha);
 
 	Ruta cerrarRuta(Long id);
-	
-	List <Ruta> crearRutasDeUnDia(RutaDiaRequestDTO request);
+
+	List<Ruta> crearRutasDeUnDia(RutaDiaRequestDTO request);
+
+	List<Ruta> crearRutasDeUnDiaTx(RutaDiaRequestDTO request, String empresa);
+
 }
