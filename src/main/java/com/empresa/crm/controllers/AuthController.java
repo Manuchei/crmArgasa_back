@@ -6,13 +6,19 @@ import com.empresa.crm.entities.Usuario;
 import com.empresa.crm.security.JwtUtil;
 import com.empresa.crm.services.AuthService;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
+import com.empresa.crm.dto.MeResponse;
+import com.empresa.crm.tenant.TenantContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.GrantedAuthority;
+
+import com.empresa.crm.repositories.UsuarioRepository;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -21,54 +27,54 @@ public class AuthController {
 
 	private final AuthService authService;
 	private final JwtUtil jwtUtil;
+	private final AuthenticationManager authenticationManager;
+	private final UsuarioRepository usuarioRepository;
 
-	/*
-	 * @Autowired private AuthenticationManager authenticationManager;
-	 */
-
-	public AuthController(AuthService authService, JwtUtil jwtUtil) {
+	public AuthController(AuthService authService, JwtUtil jwtUtil, AuthenticationManager authenticationManager,
+			UsuarioRepository usuarioRepository) {
 		this.authService = authService;
 		this.jwtUtil = jwtUtil;
+		this.authenticationManager = authenticationManager;
+		this.usuarioRepository = usuarioRepository;
 	}
 
 	@PostMapping("/register")
 	public Usuario register(@RequestBody Usuario usuario) {
+		// AuthService ya encripta con BCrypt
 		return authService.registrar(usuario);
 	}
 
 	@PostMapping("/login")
-	public ResponseEntity<?> login(@RequestBody LoginRequest req) {
+	public ResponseEntity<JwtResponse> login(@RequestBody LoginRequest req) {
 
-		System.out.println("🟡 LOGIN FAKE");
-		System.out.println("EMAIL: " + req.getEmail());
+		// Autenticación REAL: email + password contra UserDetailsService
+		Authentication auth = authenticationManager
+				.authenticate(new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword()));
 
-		// Token falso (o uno real si quieres)
-		String fakeToken = "FAKE_TOKEN_" + req.getEmail();
+		UserDetails userDetails = (UserDetails) auth.getPrincipal();
 
-		return ResponseEntity.ok(new JwtResponse(fakeToken, "ROLE_USER"));
+		// Sacamos el rol en formato "ROLE_X"
+		String rol = userDetails.getAuthorities().stream().findFirst().map(a -> a.getAuthority()).orElse("ROLE_USER");
+
+		// Generamos JWT
+		String token = jwtUtil.generarToken(userDetails.getUsername(), rol);
+
+		return ResponseEntity.ok(new JwtResponse(token, rol));
 	}
 
-	/*
-	 * @PostMapping("/login") public ResponseEntity<?> login(@RequestBody
-	 * LoginRequest req) {
-	 * 
-	 * System.out.println("📩 LOGIN RECIBIDO:"); System.out.println("EMAIL: " +
-	 * req.getEmail()); System.out.println("PASSWORD RAW: " + req.getPassword());
-	 * 
-	 * try { Authentication auth = authenticationManager .authenticate(new
-	 * UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword()));
-	 * 
-	 * UserDetails userDetails = (UserDetails) auth.getPrincipal();
-	 * 
-	 * String email = userDetails.getUsername(); String rol =
-	 * userDetails.getAuthorities().iterator().next().getAuthority();
-	 * 
-	 * // GENERAR TOKEN String token = jwtUtil.generarToken(email, rol);
-	 * 
-	 * // 🔥 DEVOLVER TOKEN + ROL return ResponseEntity.ok(new JwtResponse(token,
-	 * rol));
-	 * 
-	 * } catch (Exception e) { return
-	 * ResponseEntity.status(401).body("Usuario o contraseña incorrectos"); } }
-	 */
+	@GetMapping("/me")
+	public ResponseEntity<MeResponse> me() {
+
+		String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+		String rol = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+				.map(GrantedAuthority::getAuthority).findFirst().orElse("ROLE_USER");
+
+		String empresa = TenantContext.get();
+
+		Usuario u = usuarioRepository.findByEmail(email)
+				.orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+		return ResponseEntity.ok(new MeResponse(u.getId(), u.getNombre(), email, rol, empresa));
+	}
 }

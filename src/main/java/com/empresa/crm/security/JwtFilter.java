@@ -1,6 +1,5 @@
 package com.empresa.crm.security;
 
-import com.empresa.crm.services.AuthService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,6 +11,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+
 import java.io.IOException;
 
 @Component
@@ -20,7 +20,6 @@ public class JwtFilter extends OncePerRequestFilter {
 	private final JwtUtil jwtUtil;
 	private final UsuarioDetailsService usuarioDetailsService;
 
-	// @Lazy evita dependencia circular
 	public JwtFilter(JwtUtil jwtUtil, @Lazy UsuarioDetailsService usuarioDetailsService) {
 		this.jwtUtil = jwtUtil;
 		this.usuarioDetailsService = usuarioDetailsService;
@@ -32,8 +31,8 @@ public class JwtFilter extends OncePerRequestFilter {
 
 		String path = request.getRequestURI();
 
-		// ⛔ EXCLUIR TODAS LAS RUTAS DE AUTENTICACIÓN
-		if (path.startsWith("/api/auth")) {
+		// ✅ Solo excluir login y register (NO excluir /me)
+		if (path.equals("/api/auth/login") || path.equals("/api/auth/register")) {
 			filterChain.doFilter(request, response);
 			return;
 		}
@@ -44,7 +43,13 @@ public class JwtFilter extends OncePerRequestFilter {
 
 		if (authHeader != null && authHeader.startsWith("Bearer ")) {
 			jwt = authHeader.substring(7);
-			username = jwtUtil.extractUsername(jwt);
+			try {
+				username = jwtUtil.extractUsername(jwt);
+			} catch (Exception e) {
+				// Token malformado => seguimos sin autenticar
+				filterChain.doFilter(request, response);
+				return;
+			}
 		}
 
 		if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
