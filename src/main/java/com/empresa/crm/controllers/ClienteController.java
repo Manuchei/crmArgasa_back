@@ -10,7 +10,9 @@ import com.empresa.crm.entities.Trabajo;
 import com.empresa.crm.repositories.ClienteRepository;
 import com.empresa.crm.services.ClienteService;
 import com.empresa.crm.tenant.TenantContext;
+import org.springframework.security.access.prepost.PreAuthorize;
 
+@PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
 @RestController
 @RequestMapping("/api/clientes")
 @CrossOrigin(origins = "http://localhost:4200")

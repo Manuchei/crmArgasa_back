@@ -3,6 +3,7 @@ package com.empresa.crm.controllers;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +18,7 @@ import com.empresa.crm.repositories.TransportistaRepository;
 
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 
+@PreAuthorize("hasRole('ADMIN')")
 @RestController
 @RequestMapping("/api/transportistas")
 @CrossOrigin(origins = "http://localhost:4200")

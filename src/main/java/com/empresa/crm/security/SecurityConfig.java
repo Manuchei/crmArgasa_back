@@ -31,7 +31,9 @@ public class SecurityConfig {
 				.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 						.requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
-						.requestMatchers("/api/auth/me").authenticated());
+
+						// ✅ ADMIN -> todo
+						.requestMatchers("/api/**").authenticated());
 
 		// JWT Filter antes del filtro de username/password
 		http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

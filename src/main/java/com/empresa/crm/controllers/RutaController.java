@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.empresa.crm.dto.RutaDiaRequestDTO;
@@ -17,6 +18,7 @@ import com.empresa.crm.repositories.ClienteRepository;
 import com.empresa.crm.repositories.ProductoRepository;
 import com.empresa.crm.services.RutaService;
 
+@PreAuthorize("hasRole('ADMIN') or hasRole('TRANSPORTISTA')")
 @RestController
 @RequestMapping("/api/rutas")
 @CrossOrigin(origins = "http://localhost:4200")

@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.empresa.crm.entities.Producto;
 import com.empresa.crm.repositories.ProductoRepository;
+import com.empresa.crm.tenant.TenantContext;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -23,17 +24,24 @@ public class ProductoController {
 	}
 
 	@GetMapping
-	public List<Producto> list(@RequestParam(required = false) String empresa) {
-		if (empresa != null && !empresa.isBlank())
-			return repo.findByEmpresa(empresa);
-		return repo.findAll();
+	public List<Producto> list() {
+		String empresa = TenantContext.get();
+		if (empresa == null || empresa.isBlank()) {
+			throw new IllegalArgumentException("Empresa no definida");
+		}
+		return repo.findByEmpresa(empresa);
 	}
 
 	@PostMapping
 	public ResponseEntity<?> create(@RequestBody Producto p, HttpServletRequest request) {
 
-		System.out.println("CONTENT-TYPE RECIBIDO: " + request.getContentType());
-		System.out.println("LLEGA -> " + p);
+		String empresa = TenantContext.get();
+		if (empresa == null || empresa.isBlank()) {
+			return ResponseEntity.badRequest().body("Empresa no definida");
+		}
+
+		// ✅ forzamos empresa del tenant (evita que te cuelen otra)
+		p.setEmpresa(empresa);
 
 		if (p.getCodigo() == null || p.getCodigo().isBlank()) {
 			return ResponseEntity.badRequest().body("El código es obligatorio");
@@ -42,10 +50,17 @@ public class ProductoController {
 		return ResponseEntity.ok(repo.save(p));
 	}
 
-	// ✅ NUEVO: ajustar stock por delta (+/-)
 	@PatchMapping("/{id}/stock")
 	public ResponseEntity<?> ajustarStock(@PathVariable Long id, @RequestBody Map<String, Object> body) {
-		Producto prod = repo.findById(id).orElseThrow(() -> new RuntimeException("Producto no encontrado"));
+
+		String empresa = TenantContext.get();
+		if (empresa == null || empresa.isBlank()) {
+			return ResponseEntity.badRequest().body("Empresa no definida");
+		}
+
+		// ✅ seguridad: solo si es de esa empresa
+		Producto prod = repo.findByIdAndEmpresa(id, empresa)
+				.orElseThrow(() -> new RuntimeException("Producto no encontrado para empresa " + empresa));
 
 		Object deltaObj = body.get("delta");
 		if (deltaObj == null)
@@ -59,16 +74,11 @@ public class ProductoController {
 			return ResponseEntity.badRequest().body("'delta' debe ser numérico");
 		}
 
-		int actual = prod.getStock();
-		int nuevo = actual + delta;
-
-		if (nuevo < 0) {
+		int nuevo = prod.getStock() + delta;
+		if (nuevo < 0)
 			return ResponseEntity.badRequest().body("El stock no puede quedar negativo");
-		}
 
 		prod.setStock(nuevo);
-		Producto guardado = repo.save(prod);
-
-		return ResponseEntity.ok(guardado);
+		return ResponseEntity.ok(repo.save(prod));
 	}
 }
