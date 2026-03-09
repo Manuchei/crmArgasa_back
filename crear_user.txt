@@ -1,0 +1,8 @@
+$body = @{
+  nombre = "Admin"
+  email = "admin@electrolugargasa.com"
+  password = "admin1234"
+  rol = "ADMIN"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post -Uri $base -ContentType "application/json" -Body $body

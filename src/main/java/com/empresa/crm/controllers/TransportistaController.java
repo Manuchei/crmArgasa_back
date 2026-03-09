@@ -10,13 +10,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 import com.empresa.crm.entities.Transportista;
 import com.empresa.crm.repositories.TransportistaRepository;
-
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 
 @PreAuthorize("hasRole('ADMIN')")
 @RestController
@@ -34,11 +35,17 @@ public class TransportistaController {
 
 	@PostMapping
 	public Transportista create(@RequestBody Transportista t) {
+		if (t.getEmpresa() == null || t.getEmpresa().isBlank()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La empresa es obligatoria");
+		}
 		return repo.save(t);
 	}
 
 	@PutMapping("/{id}")
 	public Transportista update(@PathVariable Long id, @RequestBody Transportista t) {
+		if (t.getEmpresa() == null || t.getEmpresa().isBlank()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La empresa es obligatoria");
+		}
 		t.setId(id);
 		return repo.save(t);
 	}
