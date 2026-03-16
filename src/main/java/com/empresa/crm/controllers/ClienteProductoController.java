@@ -164,21 +164,29 @@ public class ClienteProductoController {
 	 * producto) y repone stock.
 	 */
 	@DeleteMapping("/{clienteId}/productos/{productoId}")
-	public ResponseEntity<Void> deleteProductoCliente(@PathVariable Long clienteId, @PathVariable Long productoId,
-			@RequestHeader(value = "X-Empresa", required = false) String empresaHeader) {
+	public ResponseEntity<Void> deleteProductoCliente(@PathVariable Long clienteId,
+	        @PathVariable Long productoId,
+	        @RequestHeader(value = "X-Empresa", required = false) String empresaHeader) {
 
-		Cliente c = clienteRepo.findById(clienteId).orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+	    Cliente c = clienteRepo.findById(clienteId)
+	            .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
 
-		String empresa = (empresaHeader != null && !empresaHeader.isBlank()) ? empresaHeader.trim() : c.getEmpresa();
+	    String empresa = (empresaHeader != null && !empresaHeader.isBlank())
+	            ? empresaHeader.trim()
+	            : c.getEmpresa();
 
-		if (empresa == null || empresa.isBlank()) {
-			throw new RuntimeException("Empresa no determinada");
-		}
+	    if (empresa == null || empresa.isBlank()) {
+	        throw new RuntimeException("Empresa no determinada");
+	    }
 
-		trabajoService.deleteProductoCliente(clienteId, productoId, empresa);
-		return ResponseEntity.noContent().build();
+	    // 1. Borra el trabajo/pedido del cliente
+	    trabajoService.deleteProductoCliente(clienteId, productoId, empresa);
+
+	    // 2. Borra también la asignación pendiente para que no aparezca en rutas
+	    clienteProductoService.eliminarAsignacion(clienteId, productoId);
+
+	    return ResponseEntity.noContent().build();
 	}
-
 	@PostMapping("/asignar")
 	public ResponseEntity<ClienteProducto> asignar(@RequestBody ClienteProductoAsignarDTO dto) {
 		return ResponseEntity.ok(clienteProductoService.asignarProductoACliente(dto));

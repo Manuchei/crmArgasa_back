@@ -30,6 +30,6 @@ public class RutaLinea {
 	// PENDIENTE / ENTREGADO / INCIDENCIA
 	@Column(nullable = false, length = 20)
 	private String estado = "PENDIENTE";
-	
+
 	private LocalDateTime fechaEntrega;
 }

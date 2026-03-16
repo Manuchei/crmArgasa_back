@@ -19,23 +19,22 @@ public class UsuarioDetailsService implements UserDetailsService {
 	}
 
 	@Override
-	public UserDetails loadUserByUsername(String username) {
+	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
 		Usuario usuario = usuarioRepository.findByEmail(username)
 				.orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado"));
 
-		// Normalizamos:
-		// - si viene "ROLE_ADMIN" => "ADMIN"
-		// - si viene "ADMIN" => "ADMIN"
 		String rol = usuario.getRol();
-		if (rol == null || rol.isBlank())
-			rol = "USER";
-		rol = rol.trim().toUpperCase();
-		if (rol.startsWith("ROLE_"))
-			rol = rol.substring(5);
 
-		return User.builder().username(usuario.getEmail()).password(usuario.getPassword()).roles(rol) // Spring añade
-																										// ROLE_
-																										// automáticamente
-				.build();
+		if (rol == null || rol.isBlank()) {
+			rol = "USER";
+		}
+
+		rol = rol.trim().toUpperCase();
+
+		if (rol.startsWith("ROLE_")) {
+			rol = rol.substring(5);
+		}
+
+		return User.builder().username(usuario.getEmail()).password(usuario.getPassword()).roles(rol).build();
 	}
 }

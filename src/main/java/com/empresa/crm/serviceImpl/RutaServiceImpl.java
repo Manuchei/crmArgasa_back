@@ -137,52 +137,72 @@ public class RutaServiceImpl implements RutaService {
 		LocalDateTime ahora = LocalDateTime.now();
 
 		for (RutaLinea l : ruta.getLineas()) {
+
 			if (l == null || l.getProducto() == null || l.getProducto().getId() == null)
 				continue;
 
 			Long productoId = l.getProducto().getId();
-			int cantidadEntregadaEnRuta = safeInt(l.getCantidad());
-			if (cantidadEntregadaEnRuta <= 0)
+			int cantidad = safeInt(l.getCantidad());
+			if (cantidad <= 0)
 				continue;
 
-			// ✅ Buscar asignación filtrando por empresa
+			// ✅ 1. Marcar línea como entregada
+			l.setEstado("ENTREGADO");
+			l.setFechaEntrega(ahora);
+
+			// ✅ 2. Actualizar ClienteProducto
 			ClienteProducto cp = clienteProductoRepository
 					.findByEmpresaAndClienteIdAndProductoId(empresa, clienteId, productoId).orElse(null);
 
-			if (cp == null)
-				continue;
-			if (isEntregadoCompleto(cp))
-				continue;
+			if (cp != null) {
 
-			int total = safeInt(cp.getCantidadTotal());
-			int entregada = safeInt(cp.getCantidadEntregada());
-			if (total <= 0)
-				continue;
+				int total = safeInt(cp.getCantidadTotal());
+				int entregada = safeInt(cp.getCantidadEntregada());
 
-			int pendiente = total - entregada;
-			if (pendiente <= 0)
-				continue;
+				int nuevaEntregada = entregada + cantidad;
 
-			int aSumar = Math.min(cantidadEntregadaEnRuta, pendiente);
+				cp.setCantidadEntregada(nuevaEntregada);
+				cp.setFechaEntrega(ahora);
 
-			int nuevaEntregada = entregada + aSumar;
-			cp.setCantidadEntregada(nuevaEntregada);
-			cp.setFechaEntrega(ahora);
+				boolean entregadoCompleto = nuevaEntregada >= total;
 
-			boolean entregadoCompleto = nuevaEntregada >= total;
-			cp.setEntregado(entregadoCompleto);
-			cp.setEstado(entregadoCompleto ? "ENTREGADO" : "PARCIAL");
+				cp.setEntregado(entregadoCompleto);
+				cp.setEstado(entregadoCompleto ? "ENTREGADO" : "PARCIAL");
 
-			clienteProductoRepository.save(cp);
+				clienteProductoRepository.save(cp);
+			}
 
-			if (entregadoCompleto) {
-				List<Trabajo> trabajos = trabajoRepository.findByEmpresaAndClienteIdAndProductoId(empresa, clienteId,
-						productoId);
-				for (Trabajo t : trabajos) {
+			// ✅ 3. Marcar trabajos como entregados
+			List<Trabajo> trabajos = trabajoRepository.findByEmpresaAndClienteIdAndProductoId(empresa, clienteId,
+					productoId);
+
+			for (Trabajo t : trabajos) {
+
+				if (!t.isEntregado()) {
 					t.setEntregado(true);
 					t.setFechaEntrega(ahora);
 				}
-				trabajoRepository.saveAll(trabajos);
+
+			}
+
+			trabajoRepository.saveAll(trabajos);
+
+			// ✅ 4. Descontar stock del producto
+			Producto producto = productoRepository.findByIdAndEmpresa(productoId, empresa).orElse(null);
+
+			if (producto != null) {
+
+				int stockActual = safeInt(producto.getStock());
+
+				int nuevoStock = stockActual - cantidad;
+
+				if (nuevoStock < 0) {
+					throw new RuntimeException("Stock negativo al cerrar ruta para producto " + productoId);
+				}
+
+				producto.setStock(nuevoStock);
+
+				productoRepository.save(producto);
 			}
 		}
 	}
