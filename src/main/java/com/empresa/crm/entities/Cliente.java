@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
@@ -14,126 +16,185 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @Table(name = "clientes")
 public class Cliente {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    // Empresa se asigna desde backend (READ_ONLY)
-    @Column(nullable = false, length = 100)
-    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
-    private String empresa;
+	@Column(nullable = false, length = 100)
+	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
+	private String empresa;
 
-    private String nombreApellidos;
-    private String direccion;
-    private String codigoPostal;
-    private String poblacion;
-    private String provincia;
-    private String telefono;
-    private String movil;
-    private String cifDni;
-    private String email;
+	private String nombreApellidos;
 
-    private Double totalImporte = 0.0;
-    private Double totalPagado = 0.0;
+	// DIRECCIÓN DE FACTURACIÓN
+	private String direccion;
+	private String codigoPostal;
+	private String poblacion;
+	private String provincia;
 
-    // ---------------------------
-    // Helpers / Getters útiles
-    // ---------------------------
-    @Transient
-    public Double getSaldo() {
-        double importe = (totalImporte != null) ? totalImporte : 0.0;
-        double pagado = (totalPagado != null) ? totalPagado : 0.0;
-        return importe - pagado;
-    }
+	// DIRECCIÓN DE ENTREGA
+	private String direccionEntrega;
+	private String codigoPostalEntrega;
+	private String poblacionEntrega;
+	private String provinciaEntrega;
 
-    /**
-     * ✅ Dirección completa lista para usar en rutas/albaranes.
-     * Ejemplo: "C/ Mayor 12, 36201 Vigo (Pontevedra)"
-     */
-    @Transient
-    public String getDireccionCompleta() {
-        String dir = safe(direccion);
-        String cp = safe(codigoPostal);
-        String pob = safe(poblacion);
-        String prov = safe(provincia);
+	private String telefono;
+	private String movil;
+	private String cifDni;
+	private String email;
 
-        StringBuilder sb = new StringBuilder();
+	private Double totalImporte = 0.0;
+	private Double totalPagado = 0.0;
 
-        if (!dir.isBlank()) sb.append(dir);
+	@NotBlank(message = "El número de cuenta es obligatorio")
+	@Pattern(regexp = "^ES\\d{22}$", message = "El IBAN debe tener formato ES + 22 dígitos")
+	private String numeroCuenta;
 
-        // ", 36201 Vigo"
-        String cpPob = joinWithSpace(cp, pob).trim();
-        if (!cpPob.isBlank()) {
-            if (sb.length() > 0) sb.append(", ");
-            sb.append(cpPob);
-        }
+	@Transient
+	public Double getSaldo() {
+		double importe = (totalImporte != null) ? totalImporte : 0.0;
+		double pagado = (totalPagado != null) ? totalPagado : 0.0;
+		return importe - pagado;
+	}
 
-        // " (Pontevedra)"
-        if (!prov.isBlank()) {
-            sb.append(" (").append(prov).append(")");
-        }
+	/**
+	 * Dirección completa de facturación.
+	 */
+	@Transient
+	public String getDireccionCompleta() {
+		String dir = safe(direccion);
+		String cp = safe(codigoPostal);
+		String pob = safe(poblacion);
+		String prov = safe(provincia);
 
-        return sb.toString().trim();
-    }
+		StringBuilder sb = new StringBuilder();
 
-    private static String safe(String v) {
-        return v == null ? "" : v.trim();
-    }
+		if (!dir.isBlank())
+			sb.append(dir);
 
-    private static String joinWithSpace(String a, String b) {
-        a = safe(a);
-        b = safe(b);
-        if (a.isBlank()) return b;
-        if (b.isBlank()) return a;
-        return a + " " + b;
-    }
+		String cpPob = joinWithSpace(cp, pob).trim();
+		if (!cpPob.isBlank()) {
+			if (sb.length() > 0)
+				sb.append(", ");
+			sb.append(cpPob);
+		}
 
-    // ---------------------------
-    // Relaciones
-    // ---------------------------
+		if (!prov.isBlank()) {
+			sb.append(" (").append(prov).append(")");
+		}
 
-    // ✅ Trabajos
-    @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference("cliente-trabajos")
-    private List<Trabajo> trabajos = new ArrayList<>();
+		return sb.toString().trim();
+	}
 
-    // ✅ Albaranes
-    @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference("cliente-albaranes")
-    private List<AlbaranCliente> albaranes = new ArrayList<>();
+	/**
+	 * Dirección completa de entrega. Si no está informada, usa la de facturación.
+	 */
+	@Transient
+	public String getDireccionEntregaCompleta() {
+		String dir = safe(direccionEntrega);
+		String cp = safe(codigoPostalEntrega);
+		String pob = safe(poblacionEntrega);
+		String prov = safe(provinciaEntrega);
 
-    // ✅ Pagos
-    @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference("cliente-pagos")
-    private List<PagoCliente> pagos = new ArrayList<>();
+		if (dir.isBlank() && cp.isBlank() && pob.isBlank() && prov.isBlank()) {
+			return getDireccionCompleta();
+		}
 
-    // ============================
-    // Helpers trabajos (tuyos)
-    // ============================
-    public void addTrabajo(Trabajo trabajo) {
-        if (trabajo == null) return;
+		StringBuilder sb = new StringBuilder();
 
-        trabajos.add(trabajo);
-        trabajo.setCliente(this);
+		if (!dir.isBlank())
+			sb.append(dir);
 
-        double importe = (trabajo.getImporte() != null) ? trabajo.getImporte() : 0.0;
-        double pagado = (trabajo.getImportePagado() != null) ? trabajo.getImportePagado() : 0.0;
+		String cpPob = joinWithSpace(cp, pob).trim();
+		if (!cpPob.isBlank()) {
+			if (sb.length() > 0)
+				sb.append(", ");
+			sb.append(cpPob);
+		}
 
-        totalImporte = (totalImporte != null ? totalImporte : 0.0) + importe;
-        totalPagado = (totalPagado != null ? totalPagado : 0.0) + pagado;
-    }
+		if (!prov.isBlank()) {
+			sb.append(" (").append(prov).append(")");
+		}
 
-    public void removeTrabajo(Trabajo trabajo) {
-        if (trabajo == null) return;
+		return sb.toString().trim();
+	}
 
-        trabajos.remove(trabajo);
+	/**
+	 * Helpers útiles por separado para rutas. Si no hay dato de entrega, usan el de
+	 * facturación.
+	 */
+	@Transient
+	public String getDireccionEntregaFinal() {
+		return !safe(direccionEntrega).isBlank() ? safe(direccionEntrega) : safe(direccion);
+	}
 
-        double importe = (trabajo.getImporte() != null) ? trabajo.getImporte() : 0.0;
-        double pagado = (trabajo.getImportePagado() != null) ? trabajo.getImportePagado() : 0.0;
+	@Transient
+	public String getCodigoPostalEntregaFinal() {
+		return !safe(codigoPostalEntrega).isBlank() ? safe(codigoPostalEntrega) : safe(codigoPostal);
+	}
 
-        totalImporte = (totalImporte != null ? totalImporte : 0.0) - importe;
-        totalPagado = (totalPagado != null ? totalPagado : 0.0) - pagado;
+	@Transient
+	public String getPoblacionEntregaFinal() {
+		return !safe(poblacionEntrega).isBlank() ? safe(poblacionEntrega) : safe(poblacion);
+	}
 
-        trabajo.setCliente(null);
-    }
+	@Transient
+	public String getProvinciaEntregaFinal() {
+		return !safe(provinciaEntrega).isBlank() ? safe(provinciaEntrega) : safe(provincia);
+	}
+
+	private static String safe(String v) {
+		return v == null ? "" : v.trim();
+	}
+
+	private static String joinWithSpace(String a, String b) {
+		a = safe(a);
+		b = safe(b);
+		if (a.isBlank())
+			return b;
+		if (b.isBlank())
+			return a;
+		return a + " " + b;
+	}
+
+	@OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
+	@JsonManagedReference("cliente-trabajos")
+	private List<Trabajo> trabajos = new ArrayList<>();
+
+	@OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
+	@JsonManagedReference("cliente-albaranes")
+	private List<AlbaranCliente> albaranes = new ArrayList<>();
+
+	@OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
+	@JsonManagedReference("cliente-pagos")
+	private List<PagoCliente> pagos = new ArrayList<>();
+
+	public void addTrabajo(Trabajo trabajo) {
+		if (trabajo == null)
+			return;
+
+		trabajos.add(trabajo);
+		trabajo.setCliente(this);
+
+		double importe = (trabajo.getImporte() != null) ? trabajo.getImporte() : 0.0;
+		double pagado = (trabajo.getImportePagado() != null) ? trabajo.getImportePagado() : 0.0;
+
+		totalImporte = (totalImporte != null ? totalImporte : 0.0) + importe;
+		totalPagado = (totalPagado != null ? totalPagado : 0.0) + pagado;
+	}
+
+	public void removeTrabajo(Trabajo trabajo) {
+		if (trabajo == null)
+			return;
+
+		trabajos.remove(trabajo);
+
+		double importe = (trabajo.getImporte() != null) ? trabajo.getImporte() : 0.0;
+		double pagado = (trabajo.getImportePagado() != null) ? trabajo.getImportePagado() : 0.0;
+
+		totalImporte = (totalImporte != null ? totalImporte : 0.0) - importe;
+		totalPagado = (totalPagado != null ? totalPagado : 0.0) - pagado;
+
+		trabajo.setCliente(null);
+	}
 }

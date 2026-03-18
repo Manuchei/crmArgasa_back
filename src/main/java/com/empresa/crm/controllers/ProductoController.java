@@ -1,16 +1,12 @@
 package com.empresa.crm.controllers;
 
-import java.util.List;
-import java.util.Map;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.empresa.crm.dto.AjusteStockRequest;
 import com.empresa.crm.entities.Producto;
-import com.empresa.crm.repositories.ProductoRepository;
+import com.empresa.crm.services.ProductoService;
 import com.empresa.crm.tenant.TenantContext;
-
-import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/productos")
@@ -19,83 +15,69 @@ import jakarta.servlet.http.HttpServletRequest;
 				RequestMethod.DELETE, RequestMethod.OPTIONS })
 public class ProductoController {
 
-	private final ProductoRepository repo;
+	private final ProductoService productoService;
 
-	public ProductoController(ProductoRepository repo) {
-		this.repo = repo;
+	public ProductoController(ProductoService productoService) {
+		this.productoService = productoService;
 	}
 
 	@GetMapping
 	public ResponseEntity<?> list() {
-		String empresa = TenantContext.get();
-
-		if (empresa == null || empresa.isBlank()) {
-			return ResponseEntity.badRequest().body("Empresa no definida");
+		try {
+			String empresa = TenantContext.get();
+			return ResponseEntity.ok(productoService.listarPorEmpresa(empresa));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(e.getMessage());
 		}
-
-		List<Producto> productos = repo.findByEmpresa(empresa);
-		return ResponseEntity.ok(productos);
 	}
 
 	@PostMapping
-	public ResponseEntity<?> create(@RequestBody Producto p, HttpServletRequest request) {
-		String empresa = TenantContext.get();
-
-		if (empresa == null || empresa.isBlank()) {
-			return ResponseEntity.badRequest().body("Empresa no definida");
+	public ResponseEntity<?> create(@RequestBody Producto p) {
+		try {
+			String empresa = TenantContext.get();
+			return ResponseEntity.ok(productoService.crearProducto(p, empresa));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(e.getMessage());
 		}
+	}
 
-		if (p.getCodigo() == null || p.getCodigo().isBlank()) {
-			return ResponseEntity.badRequest().body("El código es obligatorio");
+	@PutMapping("/{id}")
+	public ResponseEntity<?> update(@PathVariable Long id, @RequestBody Producto p) {
+		try {
+			String empresa = TenantContext.get();
+			return ResponseEntity.ok(productoService.actualizarProducto(id, p, empresa));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(e.getMessage());
 		}
-
-		if (p.getNombre() == null || p.getNombre().isBlank()) {
-			return ResponseEntity.badRequest().body("El nombre es obligatorio");
-		}
-
-		// Si precio y stock son primitivos, ya vienen con valor por defecto:
-		// double -> 0.0
-		// int -> 0
-		// Así que no hace falta comprobar null
-
-		p.setEmpresa(empresa);
-
-		return ResponseEntity.ok(repo.save(p));
 	}
 
 	@PatchMapping("/{id}/stock")
-	public ResponseEntity<?> ajustarStock(@PathVariable Long id, @RequestBody Map<String, Object> body) {
-		String empresa = TenantContext.get();
-
-		if (empresa == null || empresa.isBlank()) {
-			return ResponseEntity.badRequest().body("Empresa no definida");
-		}
-
-		Producto prod = repo.findByIdAndEmpresa(id, empresa)
-				.orElseThrow(() -> new RuntimeException("Producto no encontrado para empresa " + empresa));
-
-		Object deltaObj = body.get("delta");
-		if (deltaObj == null) {
-			return ResponseEntity.badRequest().body("Falta 'delta'");
-		}
-
-		int delta;
+	public ResponseEntity<?> ajustarStock(@PathVariable Long id, @RequestBody AjusteStockRequest request) {
 		try {
-			delta = (deltaObj instanceof Number) ? ((Number) deltaObj).intValue()
-					: Integer.parseInt(String.valueOf(deltaObj));
-		} catch (Exception e) {
-			return ResponseEntity.badRequest().body("'delta' debe ser numérico");
+			String empresa = TenantContext.get();
+			return ResponseEntity.ok(productoService.ajustarStock(id, request, empresa));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(e.getMessage());
 		}
+	}
 
-		int stockActual = prod.getStock();
-		int nuevoStock = stockActual + delta;
-
-		if (nuevoStock < 0) {
-			return ResponseEntity.badRequest().body("El stock no puede quedar negativo");
+	@GetMapping("/{id}/movimientos")
+	public ResponseEntity<?> listarMovimientosPorProducto(@PathVariable Long id) {
+		try {
+			String empresa = TenantContext.get();
+			return ResponseEntity.ok(productoService.listarMovimientosPorProducto(id, empresa));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(e.getMessage());
 		}
+	}
 
-		prod.setStock(nuevoStock);
-
-		return ResponseEntity.ok(repo.save(prod));
+	@GetMapping("/movimientos")
+	public ResponseEntity<?> listarTodosLosMovimientos() {
+		try {
+			String empresa = TenantContext.get();
+			return ResponseEntity.ok(productoService.listarTodosLosMovimientos(empresa));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(e.getMessage());
+		}
 	}
 }

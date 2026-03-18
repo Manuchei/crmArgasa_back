@@ -40,7 +40,6 @@ public class RutaServiceImpl implements RutaService {
 	private final ProductoRepository productoRepository;
 	private final RutaScheduler rutaScheduler;
 
-	// ✅ Para auto-crear asignaciones y evitar SQL manual del cliente
 	private final ClienteProductoService clienteProductoService;
 
 	@Override
@@ -63,14 +62,13 @@ public class RutaServiceImpl implements RutaService {
 			throw new IllegalArgumentException("Cliente obligatorio en la ruta");
 		}
 
-		// ✅ Cliente SIEMPRE por empresa
 		Cliente c = clienteRepository.findByIdAndEmpresa(ruta.getCliente().getId(), ruta.getEmpresa()).orElseThrow(
 				() -> new IllegalArgumentException("Cliente no encontrado en empresa " + ruta.getEmpresa()));
 
 		ruta.setCliente(c);
 
 		if (ruta.getDestino() == null || ruta.getDestino().isBlank()) {
-			ruta.setDestino(buildDireccionCompleta(c));
+			ruta.setDestino(buildDireccionEntregaCompleta(c));
 		}
 
 		Ruta guardada = rutaRepository.save(ruta);
@@ -146,11 +144,9 @@ public class RutaServiceImpl implements RutaService {
 			if (cantidad <= 0)
 				continue;
 
-			// ✅ 1. Marcar línea como entregada
 			l.setEstado("ENTREGADO");
 			l.setFechaEntrega(ahora);
 
-			// ✅ 2. Actualizar ClienteProducto
 			ClienteProducto cp = clienteProductoRepository
 					.findByEmpresaAndClienteIdAndProductoId(empresa, clienteId, productoId).orElse(null);
 
@@ -172,22 +168,18 @@ public class RutaServiceImpl implements RutaService {
 				clienteProductoRepository.save(cp);
 			}
 
-			// ✅ 3. Marcar trabajos como entregados
 			List<Trabajo> trabajos = trabajoRepository.findByEmpresaAndClienteIdAndProductoId(empresa, clienteId,
 					productoId);
 
 			for (Trabajo t : trabajos) {
-
 				if (!t.isEntregado()) {
 					t.setEntregado(true);
 					t.setFechaEntrega(ahora);
 				}
-
 			}
 
 			trabajoRepository.saveAll(trabajos);
 
-			// ✅ 4. Descontar stock del producto
 			Producto producto = productoRepository.findByIdAndEmpresa(productoId, empresa).orElse(null);
 
 			if (producto != null) {
@@ -237,10 +229,6 @@ public class RutaServiceImpl implements RutaService {
 		}
 	}
 
-	/**
-	 * Implementación real (separa lógica para poder reutilizarla en
-	 * crearRutasDeUnDiaTx)
-	 */
 	private List<Ruta> crearRutasDeUnDiaCore(RutaDiaRequestDTO request, String empresa) {
 
 		if (request.getFecha() == null || request.getFecha().isBlank()) {
@@ -270,7 +258,6 @@ public class RutaServiceImpl implements RutaService {
 				throw new IllegalArgumentException("clienteId obligatorio en cada fila");
 			}
 
-			// ✅ Cliente SIEMPRE por empresa
 			Cliente c = clienteRepository.findByIdAndEmpresa(item.getClienteId(), empresa)
 					.orElseThrow(() -> new IllegalArgumentException(
 							"Cliente no encontrado: " + item.getClienteId() + " en empresa " + empresa));
@@ -290,10 +277,9 @@ public class RutaServiceImpl implements RutaService {
 			r.setObservaciones(item.getObservaciones());
 
 			if (r.getDestino() == null || r.getDestino().isBlank()) {
-				r.setDestino(buildDireccionCompleta(c));
+				r.setDestino(buildDireccionEntregaCompleta(c));
 			}
 
-			// ✅ LINEAS
 			if (item.getProductos() != null && !item.getProductos().isEmpty()) {
 				if (r.getLineas() == null)
 					r.setLineas(new ArrayList<>());
@@ -309,12 +295,10 @@ public class RutaServiceImpl implements RutaService {
 
 					Long productoId = p.getProducto();
 
-					// ✅ Producto SIEMPRE por empresa (evita mezclar ARGASA/ELECTROLUGA)
 					Producto prod = productoRepository.findByIdAndEmpresa(productoId, empresa)
 							.orElseThrow(() -> new IllegalArgumentException(
 									"Producto no encontrado: " + productoId + " en empresa " + empresa));
 
-					// ✅ Auto-crea asignación si no existe (evita SQL manual del cliente)
 					ClienteProducto cp = clienteProductoService.ensureAsignacion(c.getId(), prod.getId(),
 							cantSolicitada);
 
@@ -388,10 +372,6 @@ public class RutaServiceImpl implements RutaService {
 		return guardadas;
 	}
 
-	/**
-	 * Si tu interfaz lo exige, aquí tienes una implementación funcional. (Usa
-	 * empresa explícita, fuerza TenantContext y delega en la core.)
-	 */
 	@Override
 	@Transactional
 	public List<Ruta> crearRutasDeUnDiaTx(RutaDiaRequestDTO request, String empresa) {
@@ -419,8 +399,6 @@ public class RutaServiceImpl implements RutaService {
 			}
 		}
 	}
-
-	// ===================== HELPERS =====================
 
 	private LocalDate parseFecha(String fecha) {
 		String f = fecha.trim();
@@ -455,17 +433,25 @@ public class RutaServiceImpl implements RutaService {
 		return (n == null) ? 0 : n.intValue();
 	}
 
-	private String buildDireccionCompleta(Cliente c) {
-		String dir = safe(c.getDireccion());
-		String cp = safe(c.getCodigoPostal());
-		String pob = safe(c.getPoblacion());
-		String prov = safe(c.getProvincia());
+	/**
+	 * Usa dirección de entrega si existe; si no, usa la de facturación.
+	 */
+	private String buildDireccionEntregaCompleta(Cliente c) {
+		String dir = safe(notBlankOrElse(c.getDireccionEntrega(), c.getDireccion()));
+		String cp = safe(notBlankOrElse(c.getCodigoPostalEntrega(), c.getCodigoPostal()));
+		String pob = safe(notBlankOrElse(c.getPoblacionEntrega(), c.getPoblacion()));
+		String prov = safe(notBlankOrElse(c.getProvinciaEntrega(), c.getProvincia()));
 
 		String medio = (cp + " " + pob).trim();
 		String fin = prov.isBlank() ? "" : (" (" + prov + ")");
 
 		String res = (dir + (medio.isBlank() ? "" : (", " + medio)) + fin).trim();
 		return res.isBlank() ? "-" : res;
+	}
+
+	private String notBlankOrElse(String preferred, String fallback) {
+		String p = safe(preferred);
+		return !p.isBlank() ? p : safe(fallback);
 	}
 
 	private String safe(String s) {

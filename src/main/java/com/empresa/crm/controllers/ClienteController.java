@@ -1,7 +1,13 @@
 package com.empresa.crm.controllers;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 
 import com.empresa.crm.dto.ClienteResumenDTO;
@@ -10,7 +16,8 @@ import com.empresa.crm.entities.Trabajo;
 import com.empresa.crm.repositories.ClienteRepository;
 import com.empresa.crm.services.ClienteService;
 import com.empresa.crm.tenant.TenantContext;
-import org.springframework.security.access.prepost.PreAuthorize;
+
+import jakarta.validation.Valid;
 
 @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
 @RestController
@@ -43,25 +50,25 @@ public class ClienteController {
 	}
 
 	@PostMapping
-	public Cliente crearCliente(@RequestBody Cliente cliente) {
+	public Cliente crearCliente(@Valid @RequestBody Cliente cliente) {
 
-		// ✅ Empresa SIEMPRE desde TenantContext
 		String empresa = TenantContext.get();
 		if (empresa == null || empresa.isBlank()) {
 			throw new RuntimeException("Empresa no seleccionada (TenantContext vacío).");
 		}
 		cliente.setEmpresa(empresa);
 
-		// ✅ Relación trabajos -> cliente
+		if (cliente.getNumeroCuenta() != null) {
+			cliente.setNumeroCuenta(cliente.getNumeroCuenta().replaceAll("\\s+", "").toUpperCase().trim());
+		}
+
 		if (cliente.getTrabajos() != null) {
 			for (Trabajo t : cliente.getTrabajos()) {
 				t.setCliente(cliente);
-				// por seguridad multi-tenant (si Trabajo tiene empresa)
 				t.setEmpresa(empresa);
 			}
 		}
 
-		// ✅ Recalcular totales
 		double totalImporte = (cliente.getTrabajos() != null)
 				? cliente.getTrabajos().stream().mapToDouble(t -> t.getImporte() != null ? t.getImporte() : 0.0).sum()
 				: 0.0;
@@ -76,7 +83,7 @@ public class ClienteController {
 	}
 
 	@PutMapping("/{id}")
-	public Cliente actualizarCliente(@PathVariable Long id, @RequestBody Cliente cliente) {
+	public Cliente actualizarCliente(@PathVariable Long id, @Valid @RequestBody Cliente cliente) {
 
 		String empresa = TenantContext.get();
 		if (empresa == null || empresa.isBlank()) {
@@ -88,11 +95,13 @@ public class ClienteController {
 			throw new RuntimeException("Cliente no encontrado");
 		}
 
-		// ✅ Mantener empresa del tenant (no la del body)
 		cliente.setId(id);
 		cliente.setEmpresa(empresa);
 
-		// ✅ Si vienen trabajos, asegurar relación y empresa
+		if (cliente.getNumeroCuenta() != null) {
+			cliente.setNumeroCuenta(cliente.getNumeroCuenta().replaceAll("\\s+", "").toUpperCase().trim());
+		}
+
 		if (cliente.getTrabajos() != null) {
 			for (Trabajo t : cliente.getTrabajos()) {
 				t.setCliente(cliente);
@@ -100,7 +109,6 @@ public class ClienteController {
 			}
 		}
 
-		// ✅ Recalcular totales (si no vienen trabajos, conserva)
 		double totalImporte = (cliente.getTrabajos() != null)
 				? cliente.getTrabajos().stream().mapToDouble(t -> t.getImporte() != null ? t.getImporte() : 0.0).sum()
 				: (existente.getTotalImporte() != null ? existente.getTotalImporte() : 0.0);
@@ -159,5 +167,16 @@ public class ClienteController {
 		cliente.setTotalPagado(totalPagado);
 
 		return clienteService.save(cliente);
+	}
+
+	@ExceptionHandler(MethodArgumentNotValidException.class)
+	public ResponseEntity<Map<String, String>> handleValidationErrors(MethodArgumentNotValidException ex) {
+		Map<String, String> errors = new LinkedHashMap<>();
+
+		for (FieldError error : ex.getBindingResult().getFieldErrors()) {
+			errors.put(error.getField(), error.getDefaultMessage());
+		}
+
+		return ResponseEntity.badRequest().body(errors);
 	}
 }

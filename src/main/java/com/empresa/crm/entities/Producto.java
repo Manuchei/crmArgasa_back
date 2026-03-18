@@ -11,30 +11,31 @@ import jakarta.persistence.Table;
 import lombok.Data;
 
 @Data
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 @Entity
 @Table(name = "productos")
 public class Producto {
-	
-	@Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
-	
+
 	@Column(nullable = false, unique = true)
 	private String codigo;
-	
+
 	@Column(nullable = false)
 	private String nombre;
-	
+
 	@Column(nullable = false)
 	private int stock;
-	
+
 	@Column(nullable = false)
-	private String empresa; //"ARGASA" O "ELECTROLUGA"
-	
+	private String empresa; // "ARGASA" O "ELECTROLUGA"
+
 	@Column(name = "precio_sin_iva")
 	private Double precioSinIva = 0.0;
 
-
-
+	@Column(name = "modelo")
+	private String modelo;
 
 }

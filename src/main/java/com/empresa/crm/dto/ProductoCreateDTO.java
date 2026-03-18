@@ -6,5 +6,6 @@ public class ProductoCreateDTO {
 	public String nombre;
 	public Integer stock;
 	public String empresa;
+	public String modelo;
 
 }
