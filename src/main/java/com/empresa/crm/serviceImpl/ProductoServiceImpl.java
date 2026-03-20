@@ -51,10 +51,6 @@ public class ProductoServiceImpl implements ProductoService {
 			throw new IllegalArgumentException("Ya existe un producto con ese código");
 		}
 
-		if (producto.getStock() < 0) {
-			throw new IllegalArgumentException("El stock no puede ser negativo");
-		}
-
 		if (producto.getPrecioSinIva() != null && producto.getPrecioSinIva() < 0) {
 			throw new IllegalArgumentException("El precio sin IVA no puede ser negativo");
 		}
@@ -84,10 +80,6 @@ public class ProductoServiceImpl implements ProductoService {
 
 		if (producto.getNombre() == null || producto.getNombre().isBlank()) {
 			throw new IllegalArgumentException("El nombre es obligatorio");
-		}
-
-		if (producto.getStock() < 0) {
-			throw new IllegalArgumentException("El stock no puede ser negativo");
 		}
 
 		if (producto.getPrecioSinIva() != null && producto.getPrecioSinIva() < 0) {
@@ -132,10 +124,6 @@ public class ProductoServiceImpl implements ProductoService {
 
 		int stockAnterior = producto.getStock();
 		int stockNuevo = stockAnterior + delta;
-
-		if (stockNuevo < 0) {
-			throw new IllegalArgumentException("El stock no puede quedar negativo");
-		}
 
 		producto.setStock(stockNuevo);
 		Producto productoGuardado = repo.save(producto);

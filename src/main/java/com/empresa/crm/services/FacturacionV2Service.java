@@ -3,15 +3,20 @@ package com.empresa.crm.services;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.empresa.crm.dto.facturacionv2.ActualizarFacturaV2Request;
 import com.empresa.crm.dto.facturacionv2.ClienteDTO;
 import com.empresa.crm.dto.facturacionv2.CrearFacturaV2Request;
 import com.empresa.crm.dto.facturacionv2.EmpresaEmisoraDTO;
 import com.empresa.crm.dto.facturacionv2.FacturaV2Response;
 import com.empresa.crm.dto.facturacionv2.LineaFacturaV2Response;
+import com.empresa.crm.dto.facturacionv2.LineaFacturaV2UpdateRequest;
 import com.empresa.crm.entities.LineaAlbaranCliente;
 import com.empresa.crm.entities.ServicioCliente;
 import com.empresa.crm.entities.facturacionV2.ContadorFacturaV2;
@@ -43,7 +48,6 @@ public class FacturacionV2Service {
 		this.contadorRepo = contadorRepo;
 	}
 
-	// ✅ Para imprimir: traer cliente + lineas (evita LAZY / null)
 	@Transactional(readOnly = true)
 	public FacturaV2Response getFacturaById(Long id) {
 
@@ -56,6 +60,86 @@ public class FacturacionV2Service {
 				.orElseThrow(() -> new RuntimeException("Factura no encontrada"));
 
 		return toFacturaV2Response(factura);
+	}
+
+	@Transactional
+	public FacturaV2Response actualizarBorrador(Long facturaId, ActualizarFacturaV2Request req) {
+
+		String empresa = TenantContext.get();
+		if (empresa == null || empresa.isBlank()) {
+			throw new RuntimeException("Empresa no seleccionada");
+		}
+
+		FacturaV2 factura = facturaRepo.findByIdAndEmpresaWithClienteAndLineas(facturaId, empresa)
+				.orElseThrow(() -> new RuntimeException("Factura no existe"));
+
+		if (!"BORRADOR".equalsIgnoreCase(factura.getEstado())) {
+			throw new RuntimeException("Solo se puede modificar una factura en BORRADOR");
+		}
+
+		if (req == null) {
+			throw new RuntimeException("No se recibieron datos para actualizar");
+		}
+
+		if (req.fechaEmision() != null) {
+			factura.setFechaEmision(req.fechaEmision());
+		}
+
+		if (req.lineas() == null || req.lineas().isEmpty()) {
+			throw new RuntimeException("La factura debe tener al menos una línea");
+		}
+
+		Map<Long, LineaFacturaV2> lineasActuales = factura.getLineas().stream()
+				.collect(Collectors.toMap(LineaFacturaV2::getId, Function.identity()));
+
+		if (req.lineas().size() != factura.getLineas().size()) {
+			throw new RuntimeException("No se pueden añadir ni quitar líneas en esta versión");
+		}
+
+		for (LineaFacturaV2UpdateRequest lineaReq : req.lineas()) {
+			if (lineaReq.id() == null) {
+				throw new RuntimeException("Todas las líneas deben incluir su id");
+			}
+
+			LineaFacturaV2 linea = lineasActuales.get(lineaReq.id());
+			if (linea == null) {
+				throw new RuntimeException("Hay líneas que no pertenecen a la factura");
+			}
+
+			String descripcion = lineaReq.descripcion() == null ? "" : lineaReq.descripcion().trim();
+			Double cantidad = lineaReq.cantidad();
+			Double precioUnitario = lineaReq.precioUnitario();
+			Double ivaPct = lineaReq.ivaPct();
+
+			if (descripcion.isBlank()) {
+				throw new RuntimeException("La descripción de la línea no puede estar vacía");
+			}
+			if (cantidad == null || cantidad <= 0) {
+				throw new RuntimeException("La cantidad debe ser mayor que 0");
+			}
+			if (precioUnitario == null || precioUnitario < 0) {
+				throw new RuntimeException("El precio unitario no puede ser negativo");
+			}
+			if (ivaPct == null || ivaPct < 0) {
+				throw new RuntimeException("El IVA no puede ser negativo");
+			}
+
+			linea.setDescripcion(descripcion);
+			linea.setCantidad(cantidad);
+			linea.setPrecioUnitario(precioUnitario);
+			linea.setIvaPct(ivaPct);
+
+			double subtotal = round2(cantidad * precioUnitario);
+			double totalLinea = round2(subtotal * (1 + (ivaPct / 100.0)));
+
+			linea.setSubtotal(subtotal);
+			linea.setTotalLinea(totalLinea);
+		}
+
+		recalcularTotales(factura);
+
+		FacturaV2 guardada = facturaRepo.save(factura);
+		return toFacturaV2Response(guardada);
 	}
 
 	private FacturaV2Response toFacturaV2Response(FacturaV2 f) {
@@ -72,7 +156,6 @@ public class FacturacionV2Service {
 				l.getCantidad(), l.getPrecioUnitario(), l.getSubtotal(), l.getIvaPct(), l.getTotalLinea());
 	}
 
-	// ✅ LISTADO: devuelve BORRADOR + EMITIDA + etc (filtrable)
 	@Transactional(readOnly = true)
 	public List<FacturaV2Response> listarFacturas(Long clienteId, String estado) {
 
@@ -162,7 +245,7 @@ public class FacturacionV2Service {
 			lf.setPrecioUnitario(s.getImporte());
 			lf.setSubtotal(s.getImporte());
 			lf.setIvaPct(21.0);
-			lf.setTotalLinea(s.getImporte() * 1.21);
+			lf.setTotalLinea(round2(s.getImporte() * 1.21));
 			lineasFactura.add(lf);
 		}
 
@@ -176,9 +259,9 @@ public class FacturacionV2Service {
 			lf.setDescripcion(l.getDescripcion());
 			lf.setCantidad(l.getUnidades());
 			lf.setPrecioUnitario(l.getPrecio());
-			lf.setSubtotal(subtotal);
+			lf.setSubtotal(round2(subtotal));
 			lf.setIvaPct(21.0);
-			lf.setTotalLinea(subtotal * 1.21);
+			lf.setTotalLinea(round2(subtotal * 1.21));
 			lineasFactura.add(lf);
 		}
 
@@ -205,8 +288,8 @@ public class FacturacionV2Service {
 		FacturaV2 factura = facturaRepo.findByIdAndEmpresa(facturaId, empresa)
 				.orElseThrow(() -> new RuntimeException("Factura no existe"));
 
-		if (!"BORRADOR".equals(factura.getEstado())) {
-			throw new RuntimeException("Solo se puede cancelar una factura en BORRADOR");
+		if (!"BORRADOR".equalsIgnoreCase(factura.getEstado())) {
+			throw new RuntimeException("Solo se puede eliminar una factura en BORRADOR");
 		}
 
 		List<Long> servicioIds = factura.getLineas().stream().filter(l -> "SERVICIO".equals(l.getTipoOrigen()))
@@ -264,8 +347,6 @@ public class FacturacionV2Service {
 		return mapResponse(guardada);
 	}
 
-	// ---------------- helpers ----------------
-
 	private int siguienteNumero(String empresa, String serie) {
 		ContadorFacturaV2 c = contadorRepo.findByEmpresaAndSerie(empresa, serie).orElseGet(() -> {
 			ContadorFacturaV2 nuevo = new ContadorFacturaV2();
@@ -315,13 +396,14 @@ public class FacturacionV2Service {
 		String emp = (empresa == null) ? "" : empresa.trim().toUpperCase();
 
 		if ("ARGASA".equals(emp)) {
-			return new EmpresaEmisoraDTO("Argasa Garrido S.L.", "B-36879617", "Calle Pintor Laxeiro, 15", "36211", "Vigo", "Pontevedra",
-					"986 234 946", "argasa@empresa.com");
+			return new EmpresaEmisoraDTO("Argasa Garrido S.L.", "B-36879617", "Calle Pintor Laxeiro, 15", "36211",
+					"Vigo", "Pontevedra", "986 234 946", "argasa@empresa.com");
 		}
 
 		if ("ELECTROLUGA".equals(emp) || "LUGA".equals(emp)) {
-			return new EmpresaEmisoraDTO("Electrodomesticos Luis Garrido S.L.", "B-42722389", "Calle Pintor Laxeiro, 15", "36211", "Vigo", "Pontevedra",
-					"986 234 946", "electroluga@empresa.com");
+			return new EmpresaEmisoraDTO("Electrodomesticos Luis Garrido S.L.", "B-42722389",
+					"Calle Pintor Laxeiro, 15", "36211", "Vigo", "Pontevedra", "986 234 946",
+					"electroluga@empresa.com");
 		}
 
 		return new EmpresaEmisoraDTO(emp, "", "", "", "", "", "", "");
