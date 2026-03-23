@@ -17,8 +17,10 @@ import com.empresa.crm.entities.Cliente;
 import com.empresa.crm.entities.ClienteProducto;
 import com.empresa.crm.entities.Producto;
 import com.empresa.crm.entities.Trabajo;
+import com.empresa.crm.repositories.ClienteProductoRepository;
 import com.empresa.crm.repositories.ClienteRepository;
 import com.empresa.crm.repositories.ProductoRepository;
+import com.empresa.crm.repositories.RutaRepository;
 import com.empresa.crm.repositories.TrabajoRepository;
 import com.empresa.crm.serviceImpl.ClienteProductoServiceImpl;
 
@@ -34,20 +36,26 @@ public class ClienteProductoController {
 	private final ClienteRepository clienteRepo;
 	private final ProductoRepository productoRepo;
 	private final TrabajoRepository trabajoRepo;
+	private final ClienteProductoRepository clienteProductoRepo;
 	private final ClienteProductoServiceImpl clienteProductoService;
+	private final RutaRepository rutaRepository;
 
 	public ClienteProductoController(com.empresa.crm.services.TrabajoService trabajoService,
 			ClienteRepository clienteRepo, ProductoRepository productoRepo, TrabajoRepository trabajoRepo,
-			ClienteProductoServiceImpl clienteProductoService) {
+			ClienteProductoRepository clienteProductoRepo, ClienteProductoServiceImpl clienteProductoService,
+			RutaRepository rutaRepository) {
 		this.trabajoService = trabajoService;
 		this.clienteRepo = clienteRepo;
 		this.productoRepo = productoRepo;
 		this.trabajoRepo = trabajoRepo;
+		this.clienteProductoRepo = clienteProductoRepo;
 		this.clienteProductoService = clienteProductoService;
+		this.rutaRepository = rutaRepository;
 	}
 
 	@GetMapping("/{clienteId}/productos/pendientes")
-	public ResponseEntity<?> getProductosPendientes(@PathVariable Long clienteId, HttpServletRequest request) {
+	public ResponseEntity<?> getProductosPendientes(@PathVariable Long clienteId,
+			@RequestParam(value = "excludeRutaId", required = false) Long excludeRutaId, HttpServletRequest request) {
 
 		Cliente c = clienteRepo.findById(clienteId).orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
 
@@ -58,11 +66,40 @@ public class ClienteProductoController {
 			return ResponseEntity.badRequest().body("Empresa no determinada");
 		}
 
-		// ✅ Importante: si usas TenantContext en servicios, ponlo aquí también
-		// (si ya lo pones en un filtro/interceptor, entonces NO hace falta)
-		// TenantContext.set(empresa);
+		List<Trabajo> trabajosPendientes = trabajoRepo.findByClienteIdAndEmpresa(clienteId, empresa).stream()
+				.filter(t -> t.getProductoId() != null).filter(t -> !t.isEntregado()).collect(Collectors.toList());
 
-		return ResponseEntity.ok(clienteProductoService.listarPendientesPorCliente(clienteId));
+		if (trabajosPendientes.isEmpty()) {
+			return ResponseEntity.ok(List.of());
+		}
+
+		Map<Long, Integer> unidadesPorProducto = new HashMap<>();
+		for (Trabajo t : trabajosPendientes) {
+			Long pid = t.getProductoId();
+			int u = safeInt(t.getUnidades());
+			if (u <= 0) {
+				u = 1;
+			}
+			unidadesPorProducto.merge(pid, u, Integer::sum);
+		}
+
+		List<Long> ids = new ArrayList<>(unidadesPorProducto.keySet());
+		List<Producto> productos = productoRepo.findAllById(ids);
+
+		List<ClienteProductoCompradoDTO> res = productos.stream().map(p -> {
+			int totalPendienteTrabajo = unidadesPorProducto.getOrDefault(p.getId(), 0);
+
+			int reservadoAbierto = safeInt(rutaRepository.sumReservadoClienteProductoAbiertoExcluyendoRuta(empresa,
+					clienteId, p.getId(), excludeRutaId));
+
+			int pendienteReal = Math.max(totalPendienteTrabajo - reservadoAbierto, 0);
+
+			return new ClienteProductoCompradoDTO(p.getId(), p.getCodigo(), p.getNombre(), pendienteReal, false, null);
+		}).filter(dto -> dto.getCantidad() != null && dto.getCantidad() > 0)
+				.sorted(Comparator.comparing(ClienteProductoCompradoDTO::getNombre, String.CASE_INSENSITIVE_ORDER))
+				.collect(Collectors.toList());
+
+		return ResponseEntity.ok(res);
 	}
 
 	@PostMapping("/{clienteId}/productos/{productoId}")
@@ -71,10 +108,10 @@ public class ClienteProductoController {
 			@RequestBody(required = false) AddProductoRequest req,
 			@RequestHeader(value = "X-Empresa", required = false) String empresaHeader) {
 
-		if (req == null)
+		if (req == null) {
 			req = new AddProductoRequest();
+		}
 
-		// empresa: header > cliente
 		Cliente cliente = clienteRepo.findById(clienteId)
 				.orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
 
@@ -86,13 +123,19 @@ public class ClienteProductoController {
 		}
 
 		int cantidad = req.getCantidad() != null ? req.getCantidad() : 1;
-		if (cantidad <= 0)
+		if (cantidad <= 0) {
 			cantidad = 1;
+		}
 
 		Producto p = productoRepo.findById(productoId).orElseThrow(() -> new RuntimeException("Producto no existe"));
 
 		if (!p.getEmpresa().equalsIgnoreCase(empresa)) {
 			throw new RuntimeException("Producto no pertenece a la empresa activa");
+		}
+
+		int stockActual = safeInt(p.getStock());
+		if (cantidad > stockActual) {
+			throw new RuntimeException("Stock insuficiente");
 		}
 
 		int updated = productoRepo.decrementStockIfAvailable(productoId, cantidad, empresa);
@@ -107,11 +150,8 @@ public class ClienteProductoController {
 		t.setDescuento(req.getDescuento() != null ? req.getDescuento() : 0.0);
 		t.setImportePagado(req.getImportePagado() != null ? req.getImportePagado() : 0.0);
 		t.setEmpresa(empresa);
-
-		// descripción automática
 		t.setDescripcion(p.getNombre());
 
-		// ✅ Mantener cliente_producto sincronizado con las compras
 		ClienteProductoAsignarDTO dto = new ClienteProductoAsignarDTO();
 		dto.setClienteId(clienteId);
 		dto.setProductoId(productoId);
@@ -120,6 +160,97 @@ public class ClienteProductoController {
 		clienteProductoService.asignarProductoACliente(dto);
 
 		return trabajoService.save(t);
+	}
+
+	@PutMapping("/{clienteId}/productos/{productoId}/cantidad")
+	@Transactional
+	public ResponseEntity<?> actualizarCantidad(@PathVariable Long clienteId, @PathVariable Long productoId,
+			@RequestParam int cantidad, @RequestHeader(value = "X-Empresa", required = false) String empresaHeader) {
+
+		Cliente cliente = clienteRepo.findById(clienteId)
+				.orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+
+		String empresa = (empresaHeader != null && !empresaHeader.isBlank()) ? empresaHeader.trim()
+				: cliente.getEmpresa();
+
+		if (empresa == null || empresa.isBlank()) {
+			throw new RuntimeException("Empresa no determinada");
+		}
+
+		List<Trabajo> trabajos = trabajoRepo.findByEmpresaAndClienteIdAndProductoId(empresa, clienteId, productoId);
+
+		Trabajo trabajo = trabajos.stream().filter(t -> !t.isEntregado()).findFirst()
+				.orElseThrow(() -> new RuntimeException("No existe ese producto pendiente en el cliente"));
+
+		int actual = safeInt(trabajo.getUnidades());
+		if (actual <= 0) {
+			actual = 1;
+		}
+
+		ClienteProducto cp = clienteProductoRepo.findByEmpresaAndClienteIdAndProductoId(empresa, clienteId, productoId)
+				.orElse(null);
+
+		if (cantidad == actual) {
+			return ResponseEntity.ok(trabajo);
+		}
+
+		// AUMENTAR
+		if (cantidad > actual) {
+			int diff = cantidad - actual;
+
+			Producto producto = productoRepo.findByIdAndEmpresa(productoId, empresa)
+					.orElseThrow(() -> new RuntimeException("Producto no encontrado"));
+
+			int stockActual = safeInt(producto.getStock());
+			if (diff > stockActual) {
+				throw new RuntimeException("Stock insuficiente");
+			}
+
+			int updated = productoRepo.decrementStockIfAvailable(productoId, diff, empresa);
+			if (updated == 0) {
+				throw new RuntimeException("Stock insuficiente");
+			}
+
+			trabajo.setUnidades(cantidad);
+			trabajoRepo.save(trabajo);
+
+			if (cp != null) {
+				cp.setCantidadTotal(safeInt(cp.getCantidadTotal()) + diff);
+				normalizarClienteProducto(cp);
+				clienteProductoRepo.save(cp);
+			}
+
+			return ResponseEntity.ok(trabajo);
+		}
+
+		// DISMINUIR
+		int diff = actual - cantidad;
+
+		if (diff > 0) {
+			productoRepo.incrementStockByEmpresa(productoId, diff, empresa);
+		}
+
+		if (cp != null) {
+			int nuevoTotal = safeInt(cp.getCantidadTotal()) - diff;
+
+			if (nuevoTotal <= 0) {
+				clienteProductoRepo.delete(cp);
+			} else {
+				cp.setCantidadTotal(nuevoTotal);
+				normalizarClienteProducto(cp);
+				clienteProductoRepo.save(cp);
+			}
+		}
+
+		if (cantidad <= 0) {
+			trabajoRepo.delete(trabajo);
+			return ResponseEntity.ok().build();
+		}
+
+		trabajo.setUnidades(cantidad);
+		trabajoRepo.save(trabajo);
+
+		return ResponseEntity.ok(trabajo);
 	}
 
 	@GetMapping("/{clienteId}/productos")
@@ -143,7 +274,7 @@ public class ClienteProductoController {
 		Map<Long, Integer> unidadesPorProducto = new HashMap<>();
 		for (Trabajo t : trabajos) {
 			Long pid = t.getProductoId();
-			int u = (t.getUnidades() != null) ? t.getUnidades() : 0;
+			int u = safeInt(t.getUnidades());
 			unidadesPorProducto.merge(pid, u, Integer::sum);
 		}
 
@@ -159,34 +290,24 @@ public class ClienteProductoController {
 		return ResponseEntity.ok(res);
 	}
 
-	/**
-	 * ✅ ELIMINAR producto del cliente (borra un trabajo pendiente asociado a ese
-	 * producto) y repone stock.
-	 */
 	@DeleteMapping("/{clienteId}/productos/{productoId}")
-	public ResponseEntity<Void> deleteProductoCliente(@PathVariable Long clienteId,
-	        @PathVariable Long productoId,
-	        @RequestHeader(value = "X-Empresa", required = false) String empresaHeader) {
+	public ResponseEntity<Void> deleteProductoCliente(@PathVariable Long clienteId, @PathVariable Long productoId,
+			@RequestHeader(value = "X-Empresa", required = false) String empresaHeader) {
 
-	    Cliente c = clienteRepo.findById(clienteId)
-	            .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+		Cliente c = clienteRepo.findById(clienteId).orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
 
-	    String empresa = (empresaHeader != null && !empresaHeader.isBlank())
-	            ? empresaHeader.trim()
-	            : c.getEmpresa();
+		String empresa = (empresaHeader != null && !empresaHeader.isBlank()) ? empresaHeader.trim() : c.getEmpresa();
 
-	    if (empresa == null || empresa.isBlank()) {
-	        throw new RuntimeException("Empresa no determinada");
-	    }
+		if (empresa == null || empresa.isBlank()) {
+			throw new RuntimeException("Empresa no determinada");
+		}
 
-	    // 1. Borra el trabajo/pedido del cliente
-	    trabajoService.deleteProductoCliente(clienteId, productoId, empresa);
+		trabajoService.deleteProductoCliente(clienteId, productoId, empresa);
+		clienteProductoService.eliminarAsignacion(clienteId, productoId);
 
-	    // 2. Borra también la asignación pendiente para que no aparezca en rutas
-	    clienteProductoService.eliminarAsignacion(clienteId, productoId);
-
-	    return ResponseEntity.noContent().build();
+		return ResponseEntity.noContent().build();
 	}
+
 	@PostMapping("/asignar")
 	public ResponseEntity<ClienteProducto> asignar(@RequestBody ClienteProductoAsignarDTO dto) {
 		return ResponseEntity.ok(clienteProductoService.asignarProductoACliente(dto));
@@ -201,6 +322,39 @@ public class ClienteProductoController {
 	public ResponseEntity<Void> eliminar(@PathVariable Long clienteId, @PathVariable Long productoId) {
 		clienteProductoService.eliminarAsignacion(clienteId, productoId);
 		return ResponseEntity.noContent().build();
+	}
 
+	private int safeInt(Integer n) {
+		return n == null ? 0 : n.intValue();
+	}
+
+	private void normalizarClienteProducto(ClienteProducto cp) {
+		if (cp == null) {
+			return;
+		}
+
+		int total = safeInt(cp.getCantidadTotal());
+		int entregada = safeInt(cp.getCantidadEntregada());
+
+		if (entregada < 0) {
+			entregada = 0;
+		}
+		if (entregada > total) {
+			entregada = total;
+		}
+
+		cp.setCantidadTotal(total);
+		cp.setCantidadEntregada(entregada);
+
+		boolean entregadoCompleto = total > 0 && entregada >= total;
+		cp.setEntregado(entregadoCompleto);
+
+		if (entregadoCompleto) {
+			cp.setEstado("ENTREGADO");
+		} else if (entregada > 0) {
+			cp.setEstado("PARCIAL");
+		} else {
+			cp.setEstado("PENDIENTE");
+		}
 	}
 }

@@ -20,29 +20,29 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
 
 	@Modifying
 	@Query("""
-			    UPDATE Producto p
-			    SET p.stock = p.stock - :cantidad
-			    WHERE p.id = :id
-			      AND UPPER(TRIM(p.empresa)) = UPPER(TRIM(:empresa))
+			UPDATE Producto p
+			SET p.stock = p.stock - :cantidad
+			WHERE p.id = :id
+			  AND UPPER(TRIM(p.empresa)) = UPPER(TRIM(:empresa))
 			""")
 	int decrementStockIfAvailable(@Param("id") Long id, @Param("cantidad") int cantidad,
 			@Param("empresa") String empresa);
 
 	@Modifying
 	@Query("""
-			    UPDATE Producto p
-			    SET p.stock = p.stock + :cantidad
-			    WHERE p.id = :id
-			      AND UPPER(TRIM(p.empresa)) = UPPER(TRIM(:empresa))
+			UPDATE Producto p
+			SET p.stock = p.stock + :cantidad
+			WHERE p.id = :id
+			  AND UPPER(TRIM(p.empresa)) = UPPER(TRIM(:empresa))
 			""")
 	int incrementStockByEmpresa(@Param("id") Long id, @Param("cantidad") int cantidad,
 			@Param("empresa") String empresa);
 
 	@Modifying
 	@Query("""
-			    UPDATE Producto p
-			    SET p.stock = p.stock + :cantidad
-			    WHERE p.id = :id
+			UPDATE Producto p
+			SET p.stock = p.stock + :cantidad
+			WHERE p.id = :id
 			""")
 	int incrementStock(@Param("id") Long id, @Param("cantidad") int cantidad);
 

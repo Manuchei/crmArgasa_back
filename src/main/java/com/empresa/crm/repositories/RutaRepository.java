@@ -87,4 +87,29 @@ public interface RutaRepository extends JpaRepository<Ruta, Long> {
 	Integer sumReservadoClienteProductoFecha(@Param("empresa") String empresa, @Param("fecha") LocalDate fecha,
 			@Param("clienteId") Long clienteId, @Param("productoId") Long productoId);
 
+	@Query("""
+				SELECT COALESCE(SUM(rl.cantidad), 0)
+				FROM RutaLinea rl
+				JOIN rl.ruta r
+				WHERE r.empresa = :empresa
+				  AND r.cliente.id = :clienteId
+				  AND rl.producto.id = :productoId
+				  AND LOWER(COALESCE(r.estado, '')) <> 'cerrada'
+			""")
+	Integer sumReservadoClienteProductoAbierto(String empresa, Long clienteId, Long productoId);
+
+	@Query("""
+				SELECT COALESCE(SUM(rl.cantidad), 0)
+				FROM RutaLinea rl
+				JOIN rl.ruta r
+				WHERE r.empresa = :empresa
+				  AND r.cliente.id = :clienteId
+				  AND rl.producto.id = :productoId
+				  AND LOWER(COALESCE(r.estado, '')) <> 'cerrada'
+				  AND (:excludeRutaId IS NULL OR r.id <> :excludeRutaId)
+			""")
+	Integer sumReservadoClienteProductoAbiertoExcluyendoRuta(@Param("empresa") String empresa,
+			@Param("clienteId") Long clienteId, @Param("productoId") Long productoId,
+			@Param("excludeRutaId") Long excludeRutaId);
+
 }

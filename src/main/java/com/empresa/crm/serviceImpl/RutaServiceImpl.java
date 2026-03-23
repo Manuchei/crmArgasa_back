@@ -171,31 +171,68 @@ public class RutaServiceImpl implements RutaService {
 			List<Trabajo> trabajos = trabajoRepository.findByEmpresaAndClienteIdAndProductoId(empresa, clienteId,
 					productoId);
 
-			for (Trabajo t : trabajos) {
-				if (!t.isEntregado()) {
-					t.setEntregado(true);
-					t.setFechaEntrega(ahora);
-				}
+			marcarTrabajosEntregadosParcialmente(trabajos, cantidad, ahora);
+
+			// No se descuenta stock al cerrar la ruta.
+			// El stock ya fue descontado en el momento de la venta/asignación al cliente.
+		}
+	}
+
+	private void marcarTrabajosEntregadosParcialmente(List<Trabajo> trabajos, int cantidadEntregada,
+			LocalDateTime ahora) {
+
+		if (trabajos == null || trabajos.isEmpty() || cantidadEntregada <= 0) {
+			return;
+		}
+
+		int pendientesPorAsignar = cantidadEntregada;
+		List<Trabajo> nuevosTrabajosEntregados = new ArrayList<>();
+
+		for (Trabajo t : trabajos) {
+			if (pendientesPorAsignar <= 0) {
+				break;
 			}
 
-			trabajoRepository.saveAll(trabajos);
-
-			Producto producto = productoRepository.findByIdAndEmpresa(productoId, empresa).orElse(null);
-
-			if (producto != null) {
-
-				int stockActual = safeInt(producto.getStock());
-
-				int nuevoStock = stockActual - cantidad;
-
-				if (nuevoStock < 0) {
-					throw new RuntimeException("Stock negativo al cerrar ruta para producto " + productoId);
-				}
-
-				producto.setStock(nuevoStock);
-
-				productoRepository.save(producto);
+			if (t == null || t.isEntregado()) {
+				continue;
 			}
+
+			int unidadesTrabajo = safeInt(t.getUnidades());
+			if (unidadesTrabajo <= 0) {
+				unidadesTrabajo = 1;
+			}
+
+			// Caso 1: el trabajo entero queda entregado
+			if (unidadesTrabajo <= pendientesPorAsignar) {
+				t.setEntregado(true);
+				t.setFechaEntrega(ahora);
+				pendientesPorAsignar -= unidadesTrabajo;
+				continue;
+			}
+
+			// Caso 2: entrega parcial -> se divide el trabajo en dos
+			Trabajo entregado = new Trabajo();
+			entregado.setCliente(t.getCliente());
+			entregado.setProductoId(t.getProductoId());
+			entregado.setDescripcion(t.getDescripcion());
+			entregado.setUnidades(pendientesPorAsignar);
+			entregado.setDescuento(t.getDescuento());
+			entregado.setImportePagado(t.getImportePagado());
+			entregado.setEmpresa(t.getEmpresa());
+			entregado.setEntregado(true);
+			entregado.setFechaEntrega(ahora);
+
+			// El trabajo original se queda pendiente con las unidades restantes
+			t.setUnidades(unidadesTrabajo - pendientesPorAsignar);
+
+			nuevosTrabajosEntregados.add(entregado);
+			pendientesPorAsignar = 0;
+		}
+
+		trabajoRepository.saveAll(trabajos);
+
+		if (!nuevosTrabajosEntregados.isEmpty()) {
+			trabajoRepository.saveAll(nuevosTrabajosEntregados);
 		}
 	}
 
@@ -317,7 +354,7 @@ public class RutaServiceImpl implements RutaService {
 										+ item.getClienteId() + " y producto " + productoId + " en empresa " + empresa);
 					}
 
-					int reservadoCliente = safeInt(rutaRepository.sumReservadoClienteProductoFecha(empresa, fechaRuta,
+					int reservadoCliente = safeInt(rutaRepository.sumReservadoClienteProductoAbierto(empresa,
 							item.getClienteId(), productoId));
 
 					int pendienteReal = totalAsignado - entregado - reservadoCliente;
@@ -333,21 +370,9 @@ public class RutaServiceImpl implements RutaService {
 								+ item.getClienteId() + " y producto " + productoId + " en empresa " + empresa);
 					}
 
-					int stock = safeInt(prod.getStock());
-					int reservadoProducto = safeInt(
-							rutaRepository.sumReservadoProductoFecha(empresa, fechaRuta, productoId));
-
-					int stockReal = stock - reservadoProducto;
-					if (stockReal <= 0) {
-						throw new IllegalArgumentException("Sin stock REAL para producto " + productoId + " en empresa "
-								+ empresa + " (stock=" + stock + ", reservado=" + reservadoProducto + ")");
-					}
-
-					if (cantSolicitada > stockReal) {
-						throw new IllegalArgumentException(
-								"Cantidad solicitada (" + cantSolicitada + ") supera el stock REAL (" + stockReal
-										+ ") para producto " + productoId + " en empresa " + empresa);
-					}
+					// NO validamos contra el stock actual del producto aquí.
+					// La ruta debe poder generarse si el cliente tiene pendiente real,
+					// aunque el stock actual sea 0 o negativo, porque ese producto ya fue vendido.
 
 					RutaLinea linea = new RutaLinea();
 					linea.setRuta(r);

@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.web.bind.annotation.*;
 
+import com.empresa.crm.dto.PagoClienteComprobanteDTO;
 import com.empresa.crm.dto.PagoClienteCreateRequest;
 import com.empresa.crm.entities.PagoCliente;
 import com.empresa.crm.services.PagoClienteService;
@@ -27,6 +28,11 @@ public class PagoClienteController {
 	@PostMapping("/cliente/{clienteId}")
 	public PagoCliente crear(@PathVariable Long clienteId, @RequestBody PagoClienteCreateRequest req) {
 		return service.crearPago(clienteId, req);
+	}
+
+	@GetMapping("/{pagoId}/comprobante")
+	public PagoClienteComprobanteDTO obtenerComprobante(@PathVariable Long pagoId) {
+		return service.obtenerComprobante(pagoId);
 	}
 
 	@DeleteMapping("/{pagoId}")

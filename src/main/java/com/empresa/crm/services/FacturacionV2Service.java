@@ -396,8 +396,8 @@ public class FacturacionV2Service {
 		String emp = (empresa == null) ? "" : empresa.trim().toUpperCase();
 
 		if ("ARGASA".equals(emp)) {
-			return new EmpresaEmisoraDTO("Argasa Garrido S.L.", "B-36879617", "Calle Pintor Laxeiro, 15", "36211",
-					"Vigo", "Pontevedra", "986 234 946", "argasa@empresa.com");
+			return new EmpresaEmisoraDTO("Argasa Garrido S.L.", "B36879617", "Rúa Pintor Laxeiro Nº15 Bajo", "36211",
+					"Vigo", "Pontevedra", "607472159", "argasaluis@gmail.com");
 		}
 
 		if ("ELECTROLUGA".equals(emp) || "LUGA".equals(emp)) {
