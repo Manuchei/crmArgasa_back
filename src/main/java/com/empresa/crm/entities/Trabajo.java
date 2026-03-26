@@ -1,5 +1,6 @@
 package com.empresa.crm.entities;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.*;
@@ -34,6 +35,9 @@ public class Trabajo {
 	private Double importePagado = 0.0;
 
 	private boolean pagado = false;
+
+	@Column(nullable = false)
+	private LocalDate fecha = LocalDate.now();
 
 	// ✅ NUEVO (ya lo tienes en BD)
 	@Column(nullable = false)

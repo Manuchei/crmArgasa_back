@@ -1,5 +1,6 @@
 package com.empresa.crm.repositories;
 
+import java.time.LocalDate;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -24,5 +25,15 @@ public interface TrabajoRepository extends JpaRepository<Trabajo, Long> {
 	List<Trabajo> findByClienteIdAndProductoIdAndEntregadoFalse(Long clienteId, Long productoId);
 
 	List<Trabajo> findByEmpresaAndClienteIdAndProductoId(String empresa, Long clienteId, Long productoId);
+
+	List<Trabajo> findByClienteIdOrderByDescripcionAsc(Long clienteId);
+
+	List<Trabajo> findByClienteIdOrderByFechaAscIdAsc(Long clienteId);
+	
+	List<Trabajo> findByClienteIdAndFechaBetweenOrderByFechaAscIdAsc(Long clienteId, LocalDate fechaInicio, LocalDate fechaFin);
+
+	List<Trabajo> findByClienteIdAndFechaGreaterThanEqualOrderByFechaAscIdAsc(Long clienteId, LocalDate fechaInicio);
+
+	List<Trabajo> findByClienteIdAndFechaLessThanEqualOrderByFechaAscIdAsc(Long clienteId, LocalDate fechaFin);
 
 }

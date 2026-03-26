@@ -12,24 +12,27 @@ import lombok.Data;
 @Table(name = "llamadas")
 public class Llamada {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    @Column(name = "empresa", nullable = false, length = 20)
-    private String empresa;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    private String motivo;
+	@Column(name = "empresa", nullable = false, length = 20)
+	private String empresa;
 
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm")
-    @Column(name = "fecha", nullable = false)
-    private LocalDateTime fecha;
+	private String motivo;
 
-    private String estado;
+	@JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm")
+	@Column(name = "fecha", nullable = false)
+	private LocalDateTime fecha;
 
-    private String observaciones;
+	private String estado;
 
-    @ManyToOne
-    @JoinColumn(name = "cliente_id")
-    private Cliente cliente;
+	private String observaciones;
+
+	@ManyToOne
+	@JoinColumn(name = "cliente_id")
+	private Cliente cliente;
+
+	@Column(name = "recordatorio_enviado", nullable = false)
+	private boolean recordatorioEnviado = false;
 }

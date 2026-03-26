@@ -1,5 +1,5 @@
 DELETE FROM crmargasa_db.ruta_lineas
-WHERE ruta_id IN (79,80,81,82,83,84,85,86);
+WHERE ruta_id IN (120);
 
 DELETE FROM crmargasa_db.rutas
-WHERE id IN (79,80,81,82,83,84,85,86);
+WHERE id IN (120);
