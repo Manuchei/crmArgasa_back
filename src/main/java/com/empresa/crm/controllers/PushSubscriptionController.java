@@ -2,6 +2,7 @@ package com.empresa.crm.controllers;
 
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
 import com.empresa.crm.dto.PushSubscriptionRequestDTO;
@@ -12,6 +13,9 @@ import com.empresa.crm.services.PushSubscriptionService;
 public class PushSubscriptionController {
 
 	private final PushSubscriptionService service;
+
+	@Value("${app.push.public-key}")
+	private String publicKey;
 
 	public PushSubscriptionController(PushSubscriptionService service) {
 		this.service = service;
@@ -29,6 +33,6 @@ public class PushSubscriptionController {
 
 	@GetMapping("/public-key")
 	public Map<String, String> getPublicKey() {
-		return Map.of("publicKey", System.getProperty("app.push.public-key", ""));
+		return Map.of("publicKey", publicKey);
 	}
 }

@@ -47,12 +47,33 @@ public class LlamadaReminderScheduler {
 			PushMessageDTO msg = new PushMessageDTO("Llamada en 5 minutos",
 					motivo + " • " + llamada.getFecha().toLocalTime(), "/app/calendario");
 
+			System.out.println("=== SCHEDULER LLAMADAS ===");
+			System.out.println("Llamada ID: " + llamada.getId());
+			System.out.println("Fecha: " + llamada.getFecha());
+			System.out.println("Estado: " + llamada.getEstado());
+			System.out.println("Empresa: " + llamada.getEmpresa());
+			System.out.println("Subs encontradas: " + subs.size());
+
+			boolean enviado = false;
+
 			for (PushSubscription sub : subs) {
 				try {
+					System.out.println("Enviando push a endpoint: " + sub.getEndpoint());
 					webPushService.sendNotification(sub, msg);
+					System.out.println("Push enviado correctamente");
+					enviado = true;
 				} catch (Exception e) {
-					// aquí puedes desactivar la suscripción si falla repetidamente
+					System.out.println("ERROR enviando push: " + e.getMessage());
+					e.printStackTrace();
 				}
+			}
+
+			if (enviado) {
+				llamada.setRecordatorioEnviado(true);
+				llamadaRepository.save(llamada);
+				System.out.println("Llamada marcada como recordatorio enviado");
+			} else {
+				System.out.println("No se pudo enviar ningún push para la llamada " + llamada.getId());
 			}
 
 			llamada.setRecordatorioEnviado(true);

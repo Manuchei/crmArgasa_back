@@ -33,8 +33,14 @@ public class SecurityConfig {
 		http.csrf(csrf -> csrf.disable()).cors(cors -> cors.configurationSource(corsConfigurationSource()))
 				.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-						.requestMatchers("/api/auth/login", "/api/auth/register").permitAll().requestMatchers("/api/**")
-						.authenticated().anyRequest().permitAll())
+
+						.requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
+
+						.requestMatchers(HttpMethod.GET, "/api/push/public-key").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/push/subscribe").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/push/unsubscribe").permitAll()
+
+						.requestMatchers("/api/**").authenticated().anyRequest().permitAll())
 				.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();
