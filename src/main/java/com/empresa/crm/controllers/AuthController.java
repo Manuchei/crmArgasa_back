@@ -22,7 +22,6 @@ import com.empresa.crm.repositories.UsuarioRepository;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "http://localhost:4200")
 public class AuthController {
 
 	private final AuthService authService;
@@ -40,23 +39,19 @@ public class AuthController {
 
 	@PostMapping("/register")
 	public Usuario register(@RequestBody Usuario usuario) {
-		// AuthService ya encripta con BCrypt
 		return authService.registrar(usuario);
 	}
 
 	@PostMapping("/login")
 	public ResponseEntity<JwtResponse> login(@RequestBody LoginRequest req) {
 
-		// Autenticación REAL: email + password contra UserDetailsService
 		Authentication auth = authenticationManager
 				.authenticate(new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword()));
 
 		UserDetails userDetails = (UserDetails) auth.getPrincipal();
 
-		// Sacamos el rol en formato "ROLE_X"
 		String rol = userDetails.getAuthorities().stream().findFirst().map(a -> a.getAuthority()).orElse("ROLE_USER");
 
-		// Generamos JWT
 		String token = jwtUtil.generarToken(userDetails.getUsername(), rol);
 
 		return ResponseEntity.ok(new JwtResponse(token, rol));
