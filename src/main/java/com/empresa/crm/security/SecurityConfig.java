@@ -34,7 +34,7 @@ public class SecurityConfig {
 				.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-						.requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
+						.requestMatchers("/api/auth/**").permitAll()
 
 						.requestMatchers(HttpMethod.GET, "/api/push/public-key").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/push/subscribe").permitAll()
@@ -51,10 +51,14 @@ public class SecurityConfig {
 		return request -> {
 			CorsConfiguration configuration = new CorsConfiguration();
 
-			configuration.setAllowedOrigins(List.of("http://localhost:4200"));
+			configuration.setAllowedOrigins(List.of("http://localhost:4200", "https://crm.bydominguez.com"));
+
 			configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+
 			configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Empresa"));
+
 			configuration.setExposedHeaders(List.of("Authorization", "X-Empresa"));
+
 			configuration.setAllowCredentials(true);
 			configuration.setMaxAge(3600L);
 
