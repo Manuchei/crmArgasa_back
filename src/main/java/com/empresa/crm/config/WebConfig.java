@@ -13,15 +13,13 @@ public class WebConfig implements WebMvcConfigurer {
 	@Override
 	public void addCorsMappings(CorsRegistry registry) {
 		registry.addMapping("/**").allowedOrigins("http://localhost:4200")
-				.allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS").allowedHeaders("*").allowCredentials(true);
+				.allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS").allowedHeaders("*")
+				.allowCredentials(true);
 	}
 
 	@Override
 	public void addInterceptors(InterceptorRegistry registry) {
 		registry.addInterceptor(new TenantInterceptor()).addPathPatterns("/api/**")
-				.excludePathPatterns("/api/auth/login", "/api/auth/register"); // ✅
-		// login/register
-		// sin
-		// X-Empresa
+				.excludePathPatterns("/api/auth/login", "/api/auth/register", "/api/push/**");
 	}
 }
