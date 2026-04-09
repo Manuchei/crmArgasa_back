@@ -36,37 +36,55 @@ public class TrabajoServiceImpl implements TrabajoService {
 		return trabajoRepository.findById(id).orElse(null);
 	}
 
-	/**
-	 * ✅ FIX PRECIO: Si el trabajo viene de un producto (productoId != null), asigna
-	 * precioUnitario = producto.precioSinIva antes de guardar.
-	 */
 	@Override
 	@Transactional
 	public Trabajo save(Trabajo trabajo) {
 
+		if (trabajo.getEmpresa() == null || trabajo.getEmpresa().isBlank()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La empresa del trabajo es obligatoria");
+		}
+
+		// ✅ Si viene con producto, heredamos datos del producto
 		if (trabajo.getProductoId() != null) {
 
 			Producto producto = productoRepo.findById(trabajo.getProductoId())
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
 
-			// Si el trabajo no tiene empresa, la heredamos del producto
 			if (trabajo.getEmpresa() == null || trabajo.getEmpresa().isBlank()) {
 				trabajo.setEmpresa(producto.getEmpresa());
 			}
 
-			// Validación: empresa del trabajo debe coincidir con la del producto
 			if (producto.getEmpresa() != null && trabajo.getEmpresa() != null
 					&& !producto.getEmpresa().equalsIgnoreCase(trabajo.getEmpresa())) {
 				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Empresa no coincide (trabajo="
 						+ trabajo.getEmpresa() + ", producto=" + producto.getEmpresa() + ")");
 			}
 
-			// ✅ Asignar precio SIEMPRE desde el producto
 			trabajo.setPrecioUnitario(producto.getPrecioSinIva() != null ? producto.getPrecioSinIva() : 0.0);
 
-			// (Opcional) si quieres asegurar descripción = nombre del producto
 			if (trabajo.getDescripcion() == null || trabajo.getDescripcion().isBlank()) {
 				trabajo.setDescripcion(producto.getNombre());
+			}
+		}
+
+		// ✅ Si es manual, usamos el importe introducido como precioUnitario
+		if (trabajo.getProductoId() == null) {
+			if (trabajo.getUnidades() == null || trabajo.getUnidades() <= 0) {
+				trabajo.setUnidades(1);
+			}
+
+			if (trabajo.getDescuento() == null) {
+				trabajo.setDescuento(0.0);
+			}
+
+			// Si no viene precioUnitario pero sí importe, lo usamos
+			if ((trabajo.getPrecioUnitario() == null || trabajo.getPrecioUnitario() == 0)
+					&& trabajo.getImporte() != null) {
+				trabajo.setPrecioUnitario(trabajo.getImporte());
+			}
+
+			if (trabajo.getImportePagado() == null) {
+				trabajo.setImportePagado(0.0);
 			}
 		}
 
@@ -114,8 +132,6 @@ public class TrabajoServiceImpl implements TrabajoService {
 		return trabajoRepository.findByCliente_Id(clienteId);
 	}
 
-	// ✅ NUEVO: DTO COMPLETO PARA LISTADO DE CLIENTE (para que Angular pinte
-	// precio/importe)
 	@Override
 	public List<TrabajoDTO> findDtoByCliente(Long clienteId) {
 
@@ -127,19 +143,16 @@ public class TrabajoServiceImpl implements TrabajoService {
 			dto.setId(t.getId());
 			dto.setProductoId(t.getProductoId());
 
-			// ✅ Si hay producto asociado, sacamos codigo/nombre del producto
 			if (t.getProductoId() != null) {
 				Producto p = productoRepo.findById(t.getProductoId()).orElse(null);
 				if (p != null) {
 					dto.setCodigo(p.getCodigo());
 					dto.setNombre(p.getNombre());
 				} else {
-					// fallback si el producto fue borrado o no existe
 					dto.setCodigo(null);
 					dto.setNombre(t.getDescripcion());
 				}
 			} else {
-				// ✅ trabajo manual (sin producto)
 				dto.setCodigo(null);
 				dto.setNombre(t.getDescripcion());
 			}
@@ -148,13 +161,13 @@ public class TrabajoServiceImpl implements TrabajoService {
 			dto.setPrecioUnitario(t.getPrecioUnitario());
 			dto.setDescuento(t.getDescuento());
 			dto.setImporte(t.getImporte());
-
 			dto.setPagado(t.getImportePagado());
-
 			dto.setEntregado(t.isEntregado());
+
 			if (t.getFechaEntrega() != null) {
 				dto.setFechaEntrega(t.getFechaEntrega().toLocalDate());
 			}
+
 			dto.setEmpresa(t.getEmpresa());
 
 			return dto;
