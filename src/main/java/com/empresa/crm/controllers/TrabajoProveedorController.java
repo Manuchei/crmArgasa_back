@@ -40,7 +40,7 @@ public class TrabajoProveedorController {
 		trabajo.setProveedor(proveedor);
 		trabajo.setEmpresa(proveedor.getEmpresa());
 
-		// ✅ Trabajo manual: usamos el importe introducido como precioUnitario
+		// Trabajo manual
 		if (trabajo.getProductoId() == null) {
 			Double importeManual = trabajo.getImporte() != null ? trabajo.getImporte() : 0.0;
 

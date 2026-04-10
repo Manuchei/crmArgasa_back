@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 
+import com.empresa.crm.dto.ClienteDetalleDTO;
 import com.empresa.crm.dto.ClienteResumenDTO;
 import com.empresa.crm.entities.Cliente;
 import com.empresa.crm.entities.Trabajo;
@@ -45,8 +46,49 @@ public class ClienteController {
 	}
 
 	@GetMapping("/{id}")
-	public Cliente obtenerPorId(@PathVariable Long id) {
-		return clienteService.findById(id);
+	public ClienteDetalleDTO obtenerPorId(@PathVariable Long id) {
+		String empresa = TenantContext.get();
+
+		if (empresa == null || empresa.isBlank()) {
+			throw new RuntimeException("Empresa no seleccionada (TenantContext vacío).");
+		}
+
+		Cliente cliente = clienteService.findById(id);
+
+		if (cliente == null) {
+			throw new RuntimeException("Cliente no encontrado");
+		}
+
+		if (cliente.getEmpresa() == null || !empresa.equalsIgnoreCase(cliente.getEmpresa())) {
+			throw new RuntimeException("Cliente no encontrado para la empresa activa");
+		}
+
+		ClienteDetalleDTO dto = new ClienteDetalleDTO();
+		dto.setId(cliente.getId());
+		dto.setEmpresa(cliente.getEmpresa());
+		dto.setNombreApellidos(cliente.getNombreApellidos());
+
+		dto.setDireccion(cliente.getDireccion());
+		dto.setCodigoPostal(cliente.getCodigoPostal());
+		dto.setPoblacion(cliente.getPoblacion());
+		dto.setProvincia(cliente.getProvincia());
+
+		dto.setDireccionEntrega(cliente.getDireccionEntrega());
+		dto.setCodigoPostalEntrega(cliente.getCodigoPostalEntrega());
+		dto.setPoblacionEntrega(cliente.getPoblacionEntrega());
+		dto.setProvinciaEntrega(cliente.getProvinciaEntrega());
+
+		dto.setTelefono(cliente.getTelefono());
+		dto.setMovil(cliente.getMovil());
+		dto.setCifDni(cliente.getCifDni());
+		dto.setEmail(cliente.getEmail());
+
+		dto.setTotalImporte(cliente.getTotalImporte());
+		dto.setTotalPagado(cliente.getTotalPagado());
+
+		dto.setNumeroCuenta(cliente.getNumeroCuenta());
+
+		return dto;
 	}
 
 	@PostMapping

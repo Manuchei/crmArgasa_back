@@ -29,11 +29,15 @@ public interface TrabajoRepository extends JpaRepository<Trabajo, Long> {
 	List<Trabajo> findByClienteIdOrderByDescripcionAsc(Long clienteId);
 
 	List<Trabajo> findByClienteIdOrderByFechaAscIdAsc(Long clienteId);
-	
-	List<Trabajo> findByClienteIdAndFechaBetweenOrderByFechaAscIdAsc(Long clienteId, LocalDate fechaInicio, LocalDate fechaFin);
+
+	List<Trabajo> findByClienteIdAndFechaBetweenOrderByFechaAscIdAsc(Long clienteId, LocalDate fechaInicio,
+			LocalDate fechaFin);
 
 	List<Trabajo> findByClienteIdAndFechaGreaterThanEqualOrderByFechaAscIdAsc(Long clienteId, LocalDate fechaInicio);
 
 	List<Trabajo> findByClienteIdAndFechaLessThanEqualOrderByFechaAscIdAsc(Long clienteId, LocalDate fechaFin);
+
+	// NUEVO
+	Trabajo findTopByEmpresaAndNumeroInternoAlbaranIsNotNullOrderByIdDesc(String empresa);
 
 }

@@ -64,6 +64,18 @@ public class Trabajo {
 	@JoinColumn(name = "factura_id")
 	@JsonIgnore
 	private FacturaProveedor factura;
+	
+	@Column(name = "numero_interno_albaran", length = 50)
+	private String numeroInternoAlbaran;
+
+	@Column(name = "numero_albaran_proveedor", length = 100)
+	private String numeroAlbaranProveedor;
+
+	@Column(name = "numero_albaran_generado", length = 160)
+	private String numeroAlbaranGenerado;
+
+	@Column(name = "fecha_albaran")
+	private LocalDate fechaAlbaran;
 
 	@PrePersist
 	@PreUpdate

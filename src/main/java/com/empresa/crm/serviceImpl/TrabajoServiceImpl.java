@@ -1,5 +1,6 @@
 package com.empresa.crm.serviceImpl;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -44,6 +45,9 @@ public class TrabajoServiceImpl implements TrabajoService {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La empresa del trabajo es obligatoria");
 		}
 
+		// Si viene de proveedor, preparamos datos de albarán
+		prepararDatosAlbaranProveedor(trabajo);
+
 		// ✅ Si viene con producto, heredamos datos del producto
 		if (trabajo.getProductoId() != null) {
 
@@ -77,7 +81,6 @@ public class TrabajoServiceImpl implements TrabajoService {
 				trabajo.setDescuento(0.0);
 			}
 
-			// Si no viene precioUnitario pero sí importe, lo usamos
 			if ((trabajo.getPrecioUnitario() == null || trabajo.getPrecioUnitario() == 0)
 					&& trabajo.getImporte() != null) {
 				trabajo.setPrecioUnitario(trabajo.getImporte());
@@ -199,5 +202,76 @@ public class TrabajoServiceImpl implements TrabajoService {
 		}
 
 		trabajoRepository.delete(t);
+	}
+
+	private String normalizarPrefijoEmpresa(String empresa) {
+		if (empresa == null || empresa.isBlank()) {
+			return "GEN";
+		}
+
+		String valor = empresa.trim().toUpperCase();
+
+		if (valor.contains("ARGASA")) {
+			return "ARG";
+		}
+
+		if (valor.contains("LUGA") || valor.contains("ELECTROLUGA")) {
+			return "LUG";
+		}
+
+		return valor.length() >= 3 ? valor.substring(0, 3) : valor;
+	}
+
+	private int extraerSecuencia(String numeroInterno) {
+		if (numeroInterno == null || numeroInterno.isBlank()) {
+			return 0;
+		}
+
+		String[] partes = numeroInterno.split("-");
+		if (partes.length < 2) {
+			return 0;
+		}
+
+		try {
+			return Integer.parseInt(partes[1]);
+		} catch (NumberFormatException e) {
+			return 0;
+		}
+	}
+
+	private String generarNumeroInternoAlbaran(String empresa) {
+		Trabajo ultimo = trabajoRepository.findTopByEmpresaAndNumeroInternoAlbaranIsNotNullOrderByIdDesc(empresa);
+
+		int siguiente = 1;
+		if (ultimo != null && ultimo.getNumeroInternoAlbaran() != null) {
+			siguiente = extraerSecuencia(ultimo.getNumeroInternoAlbaran()) + 1;
+		}
+
+		String prefijo = normalizarPrefijoEmpresa(empresa);
+		return prefijo + "-" + String.format("%05d", siguiente);
+	}
+
+	private void prepararDatosAlbaranProveedor(Trabajo trabajo) {
+		if (trabajo.getProveedor() == null) {
+			return;
+		}
+
+		if (trabajo.getEmpresa() == null || trabajo.getEmpresa().isBlank()) {
+			trabajo.setEmpresa(trabajo.getProveedor().getEmpresa());
+		}
+
+		if (trabajo.getFechaAlbaran() == null) {
+			trabajo.setFechaAlbaran(LocalDate.now());
+		}
+
+		boolean hayNumeroProveedor = trabajo.getNumeroAlbaranProveedor() != null
+				&& !trabajo.getNumeroAlbaranProveedor().isBlank();
+
+		if (hayNumeroProveedor
+				&& (trabajo.getNumeroInternoAlbaran() == null || trabajo.getNumeroInternoAlbaran().isBlank())) {
+			String numeroInterno = generarNumeroInternoAlbaran(trabajo.getEmpresa());
+			trabajo.setNumeroInternoAlbaran(numeroInterno);
+			trabajo.setNumeroAlbaranGenerado(numeroInterno + " / " + trabajo.getNumeroAlbaranProveedor().trim());
+		}
 	}
 }

@@ -79,4 +79,8 @@ public class Proveedor {
 
 	@Column(name = "importe_pendiente")
 	private Double importePendiente;
+
+	@OneToMany(mappedBy = "proveedor", cascade = CascadeType.ALL, orphanRemoval = true)
+	@JsonIgnore
+	private List<AlbaranProveedor> albaranes = new ArrayList<>();
 }
