@@ -5,6 +5,7 @@ import java.util.List;
 import com.empresa.crm.entities.FacturaProveedor;
 
 public interface FacturaProveedorService {
+
 	List<FacturaProveedor> findAll();
 
 	FacturaProveedor findById(Long id);
@@ -12,6 +13,8 @@ public interface FacturaProveedorService {
 	FacturaProveedor generarFactura(Long proveedorId, String empresa);
 
 	FacturaProveedor marcarComoPagada(Long facturaId);
+
+	FacturaProveedor actualizarNumeroFacturaProveedor(Long facturaId, String numeroFacturaProveedor);
 
 	List<FacturaProveedor> findByEmpresa(String empresa);
 

@@ -2,12 +2,16 @@ package com.empresa.crm.repositories;
 
 import java.time.LocalDate;
 import java.util.List;
+
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+
 import com.empresa.crm.entities.Trabajo;
 
 @Repository
 public interface TrabajoRepository extends JpaRepository<Trabajo, Long> {
+
 	List<Trabajo> findByProveedorId(Long proveedorId);
 
 	List<Trabajo> findByPagado(boolean pagado);
@@ -37,7 +41,21 @@ public interface TrabajoRepository extends JpaRepository<Trabajo, Long> {
 
 	List<Trabajo> findByClienteIdAndFechaLessThanEqualOrderByFechaAscIdAsc(Long clienteId, LocalDate fechaFin);
 
-	// NUEVO
 	Trabajo findTopByEmpresaAndNumeroInternoAlbaranIsNotNullOrderByIdDesc(String empresa);
 
+	@Query("""
+				select coalesce(sum(t.importe), 0)
+				from Trabajo t
+				where t.proveedor.id = :proveedorId
+				  and lower(coalesce(t.empresa, '')) = lower(:empresa)
+			""")
+	Double sumImporteByProveedorIdAndEmpresa(Long proveedorId, String empresa);
+
+	@Query("""
+				select coalesce(sum(t.importePagado), 0)
+				from Trabajo t
+				where t.proveedor.id = :proveedorId
+				  and lower(coalesce(t.empresa, '')) = lower(:empresa)
+			""")
+	Double sumImportePagadoByProveedorIdAndEmpresa(Long proveedorId, String empresa);
 }

@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service;
 
 import com.empresa.crm.entities.Producto;
 import com.empresa.crm.entities.Proveedor;
+import com.empresa.crm.repositories.ProductoRepository;
 import com.empresa.crm.repositories.ProveedorRepository;
+import com.empresa.crm.repositories.TrabajoRepository;
 import com.empresa.crm.services.ProveedorService;
 import com.empresa.crm.tenant.TenantContext;
 
@@ -17,42 +19,44 @@ import jakarta.transaction.Transactional;
 public class ProveedorServiceImpl implements ProveedorService {
 
 	private final ProveedorRepository proveedorRepository;
+	private final TrabajoRepository trabajoRepository;
+	private final ProductoRepository productoRepository;
 
-	public ProveedorServiceImpl(ProveedorRepository proveedorRepository) {
+	public ProveedorServiceImpl(ProveedorRepository proveedorRepository, TrabajoRepository trabajoRepository,
+			ProductoRepository productoRepository) {
 		this.proveedorRepository = proveedorRepository;
+		this.trabajoRepository = trabajoRepository;
+		this.productoRepository = productoRepository;
 	}
 
 	@Override
 	public List<Proveedor> findAll() {
 		String empresa = TenantContext.get();
-		return proveedorRepository.findByEmpresa(empresa);
+		List<Proveedor> proveedores = proveedorRepository.findByEmpresa(empresa);
+
+		for (Proveedor proveedor : proveedores) {
+			recalcularTotalesProveedor(proveedor, empresa);
+		}
+
+		return proveedores;
 	}
 
 	@Override
 	public Proveedor findById(Long id) {
 		String empresa = TenantContext.get();
-		return proveedorRepository.findByIdAndEmpresa(id, empresa).orElse(null);
+		Proveedor proveedor = proveedorRepository.findByIdAndEmpresa(id, empresa).orElse(null);
+
+		if (proveedor != null) {
+			recalcularTotalesProveedor(proveedor, empresa);
+		}
+
+		return proveedor;
 	}
 
 	@Override
 	public Proveedor save(Proveedor proveedor) {
 		String empresa = TenantContext.get();
-
 		proveedor.setEmpresa(empresa);
-
-		double total = 0.0;
-		double pagado = 0.0;
-
-		if (proveedor.getTrabajos() != null) {
-			for (var t : proveedor.getTrabajos()) {
-				total += t.getImporte() != null ? t.getImporte() : 0;
-				pagado += t.getImportePagado() != null ? t.getImportePagado() : 0;
-			}
-		}
-
-		proveedor.setImporteTotal(total);
-		proveedor.setImportePagado(pagado);
-		proveedor.setImportePendiente(total - pagado);
 
 		if (proveedor.getProductos() == null) {
 			proveedor.setProductos(new ArrayList<>());
@@ -76,7 +80,12 @@ public class ProveedorServiceImpl implements ProveedorService {
 			}
 		}
 
-		return proveedorRepository.save(proveedor);
+		Proveedor guardado = proveedorRepository.save(proveedor);
+
+		// ✅ recalcular SIEMPRE desde BD, no desde guardado.getTrabajos()
+		recalcularTotalesProveedor(guardado, empresa);
+
+		return proveedorRepository.save(guardado);
 	}
 
 	@Override
@@ -89,18 +98,74 @@ public class ProveedorServiceImpl implements ProveedorService {
 	@Override
 	public List<Proveedor> findByOficio(String oficio) {
 		String empresa = TenantContext.get();
-		return proveedorRepository.findByEmpresaAndOficio(empresa, oficio);
+		List<Proveedor> proveedores = proveedorRepository.findByEmpresaAndOficio(empresa, oficio);
+
+		for (Proveedor proveedor : proveedores) {
+			recalcularTotalesProveedor(proveedor, empresa);
+		}
+
+		return proveedores;
 	}
 
 	@Override
 	public List<Proveedor> findByEmpresa(String empresa) {
-		return proveedorRepository.findByEmpresa(TenantContext.get());
+		String tenant = TenantContext.get();
+		List<Proveedor> proveedores = proveedorRepository.findByEmpresa(tenant);
+
+		for (Proveedor proveedor : proveedores) {
+			recalcularTotalesProveedor(proveedor, tenant);
+		}
+
+		return proveedores;
 	}
 
 	@Override
 	public List<Proveedor> buscar(String texto, String empresa, String oficio) {
 		String tenant = TenantContext.get();
 
-		return proveedorRepository.buscarAvanzado(texto == null ? "" : texto, tenant, oficio == null ? "" : oficio);
+		List<Proveedor> proveedores = proveedorRepository.buscarAvanzado(texto == null ? "" : texto, tenant,
+				oficio == null ? "" : oficio);
+
+		for (Proveedor proveedor : proveedores) {
+			recalcularTotalesProveedor(proveedor, tenant);
+		}
+
+		return proveedores;
+	}
+
+	private void recalcularTotalesProveedor(Proveedor proveedor, String empresa) {
+		if (proveedor == null || proveedor.getId() == null || empresa == null || empresa.isBlank()) {
+			return;
+		}
+
+		double totalTrabajos = safe(trabajoRepository.sumImporteByProveedorIdAndEmpresa(proveedor.getId(), empresa));
+		double totalPagadoTrabajos = safe(
+				trabajoRepository.sumImportePagadoByProveedorIdAndEmpresa(proveedor.getId(), empresa));
+
+		double totalProductos = 0.0;
+
+		if (proveedor.getProductos() != null) {
+			for (Producto producto : proveedor.getProductos()) {
+				double precio = safe(producto.getPrecioSinIva());
+				double stock = producto.getStock();
+				totalProductos += precio * stock;
+			}
+		}
+
+		double totalCompra = totalTrabajos + totalProductos;
+		double totalPagado = totalPagadoTrabajos;
+		double pendientePago = totalCompra - totalPagado;
+
+		if (pendientePago < 0) {
+			pendientePago = 0;
+		}
+
+		proveedor.setImporteTotal(totalCompra);
+		proveedor.setImportePagado(totalPagado);
+		proveedor.setImportePendiente(pendientePago);
+	}
+
+	private double safe(Double value) {
+		return value != null ? value : 0.0;
 	}
 }

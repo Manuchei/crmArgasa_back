@@ -1,6 +1,5 @@
 package com.empresa.crm.controllers;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.web.bind.annotation.*;
@@ -40,10 +39,8 @@ public class TrabajoProveedorController {
 		trabajo.setProveedor(proveedor);
 		trabajo.setEmpresa(proveedor.getEmpresa());
 
-		// Trabajo manual
 		if (trabajo.getProductoId() == null) {
 			Double importeManual = trabajo.getImporte() != null ? trabajo.getImporte() : 0.0;
-
 			trabajo.setUnidades(1);
 			trabajo.setPrecioUnitario(importeManual);
 			trabajo.setDescuento(0.0);
@@ -55,13 +52,8 @@ public class TrabajoProveedorController {
 
 		Trabajo guardado = trabajoService.save(trabajo);
 
-		if (proveedor.getTrabajos() == null) {
-			proveedor.setTrabajos(new ArrayList<>());
-		}
-
-		proveedor.getTrabajos().add(guardado);
-
-		proveedorService.save(proveedor);
+		// ✅ fuerza recálculo real desde BD
+		proveedorService.findById(proveedorId);
 
 		return guardado;
 	}
@@ -75,13 +67,12 @@ public class TrabajoProveedorController {
 			throw new RuntimeException("Trabajo no encontrado con ID: " + trabajoId);
 		}
 
-		Proveedor proveedor = trabajo.getProveedor();
+		Long proveedorId = trabajo.getProveedor() != null ? trabajo.getProveedor().getId() : null;
 
 		trabajoService.deleteById(trabajoId);
 
-		if (proveedor != null && proveedor.getTrabajos() != null) {
-			proveedor.getTrabajos().removeIf(t -> t.getId().equals(trabajoId));
-			proveedorService.save(proveedor);
+		if (proveedorId != null) {
+			proveedorService.findById(proveedorId);
 		}
 	}
 }

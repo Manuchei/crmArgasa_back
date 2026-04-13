@@ -47,4 +47,12 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
 	int incrementStock(@Param("id") Long id, @Param("cantidad") int cantidad);
 
 	Optional<Producto> findByIdAndEmpresa(Long id, String empresa);
+
+	@Query("""
+			    SELECT COALESCE(SUM(p.precioSinIva * p.stock), 0)
+			    FROM Producto p
+			    WHERE p.proveedor.id = :proveedorId
+			      AND p.empresa = :empresa
+			""")
+	Double sumTotalByProveedorIdAndEmpresa(@Param("proveedorId") Long proveedorId, @Param("empresa") String empresa);
 }

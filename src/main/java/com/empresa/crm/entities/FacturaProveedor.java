@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -19,21 +20,25 @@ import lombok.Data;
 @Table(name = "facturas_proveedores")
 public class FacturaProveedor {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    private String empresa; // Argasa o Luga
-    private LocalDate fechaEmision;
-    private Double totalImporte;
-    private boolean pagada;
+	private String empresa; // Argasa o Luga
+	private LocalDate fechaEmision;
+	private Double totalImporte;
+	private boolean pagada;
 
-    @ManyToOne
-    @JoinColumn(name = "proveedor_id")
-    private Proveedor proveedor;
+	@Column(name = "numero_interno", unique = true)
+	private String numeroInterno;
 
-    @OneToMany(mappedBy = "factura", cascade = CascadeType.ALL)
-    private List<Trabajo> trabajos;
-    
-   
+	@Column(name = "numero_factura_proveedor")
+	private String numeroFacturaProveedor;
+
+	@ManyToOne
+	@JoinColumn(name = "proveedor_id")
+	private Proveedor proveedor;
+
+	@OneToMany(mappedBy = "factura", cascade = CascadeType.ALL)
+	private List<Trabajo> trabajos;
 }

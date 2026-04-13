@@ -1,5 +1,6 @@
 package com.empresa.crm.controllers;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -84,13 +85,19 @@ public class ClienteProductoController {
 		}
 
 		List<Long> ids = new ArrayList<>(unidadesPorProducto.keySet());
-		List<Producto> productos = productoRepo.findAllById(ids);
+
+		// ✅ Filtramos además por empresa para evitar mezclar productos
+		List<Producto> productos = productoRepo.findAllById(ids).stream()
+				.filter(p -> p.getEmpresa() != null && p.getEmpresa().equalsIgnoreCase(empresa))
+				.collect(Collectors.toList());
+
+		LocalDate fechaReferencia = LocalDate.now();
 
 		List<ClienteProductoCompradoDTO> res = productos.stream().map(p -> {
 			int totalPendienteTrabajo = unidadesPorProducto.getOrDefault(p.getId(), 0);
 
-			int reservadoAbierto = safeInt(rutaRepository.sumReservadoClienteProductoAbiertoExcluyendoRuta(empresa,
-					clienteId, p.getId(), excludeRutaId));
+			int reservadoAbierto = safeInt(rutaRepository.sumReservadoClienteProductoAbiertoEnFechaExcluyendoRuta(
+					empresa, fechaReferencia, clienteId, p.getId(), excludeRutaId));
 
 			int pendienteReal = Math.max(totalPendienteTrabajo - reservadoAbierto, 0);
 

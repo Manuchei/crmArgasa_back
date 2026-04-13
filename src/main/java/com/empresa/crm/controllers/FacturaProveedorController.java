@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.empresa.crm.entities.FacturaProveedor;
@@ -30,6 +31,11 @@ public class FacturaProveedorController {
 		return facturaService.findAll();
 	}
 
+	@GetMapping("/{id}")
+	public FacturaProveedor obtenerPorId(@PathVariable Long id) {
+		return facturaService.findById(id);
+	}
+
 	@GetMapping("/proveedor/{proveedorId}")
 	public List<FacturaProveedor> listarPorProveedor(@PathVariable Long proveedorId) {
 		return facturaService.findByProveedor(proveedorId);
@@ -37,17 +43,24 @@ public class FacturaProveedorController {
 
 	@PostMapping("/generar/{proveedorId}")
 	public FacturaProveedor generar(@PathVariable Long proveedorId) {
-	    String empresa = TenantContext.get();
-	    if (empresa == null || empresa.isBlank()) {
-	        throw new RuntimeException("Empresa no seleccionada (TenantContext vacío).");
-	    }
-	    return facturaService.generarFactura(proveedorId, empresa);
-	}
+		String empresa = TenantContext.get();
 
+		if (empresa == null || empresa.isBlank()) {
+			throw new RuntimeException("Empresa no seleccionada (TenantContext vacío).");
+		}
+
+		return facturaService.generarFactura(proveedorId, empresa);
+	}
 
 	@PutMapping("/pagar/{facturaId}")
 	public FacturaProveedor pagar(@PathVariable Long facturaId) {
 		return facturaService.marcarComoPagada(facturaId);
+	}
+
+	@PutMapping("/numero-proveedor/{facturaId}")
+	public FacturaProveedor actualizarNumeroFacturaProveedor(@PathVariable Long facturaId,
+			@RequestParam String numeroFacturaProveedor) {
+		return facturaService.actualizarNumeroFacturaProveedor(facturaId, numeroFacturaProveedor);
 	}
 
 	@GetMapping("/empresa/{empresa}")

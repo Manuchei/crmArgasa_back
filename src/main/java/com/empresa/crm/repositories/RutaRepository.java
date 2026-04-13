@@ -15,7 +15,6 @@ import com.empresa.crm.entities.Ruta;
 @Repository
 public interface RutaRepository extends JpaRepository<Ruta, Long> {
 
-	// legacy
 	List<Ruta> findByEstado(String estado);
 
 	List<Ruta> findByNombreTransportistaContainingIgnoreCase(String nombre);
@@ -24,12 +23,13 @@ public interface RutaRepository extends JpaRepository<Ruta, Long> {
 
 	List<Ruta> findByFechaAndNombreTransportistaIgnoreCase(LocalDate fecha, String nombre);
 
-	@Query("select distinct r.nombreTransportista from Ruta r where r.fecha = :fecha")
+	@Query("""
+			  select distinct r.nombreTransportista from Ruta r where r.fecha = :fecha
+			""")
 	List<String> findTransportistasByFecha(@Param("fecha") LocalDate fecha);
 
 	List<Ruta> findByFechaAndNombreTransportistaContainingIgnoreCase(LocalDate fecha, String nombre);
 
-	// multi-tenant (empresa)
 	List<Ruta> findByEmpresa(String empresa);
 
 	List<Ruta> findByEmpresaAndEstado(String empresa, String estado);
@@ -50,10 +50,8 @@ public interface RutaRepository extends JpaRepository<Ruta, Long> {
 			""")
 	Optional<Ruta> findByIdWithLineas(@Param("id") Long id);
 
-	// ✅ para cerrar ruta de forma segura por empresa
 	Optional<Ruta> findByIdAndEmpresa(Long id, String empresa);
 
-	// ✅ para cerrar ruta y tener líneas cargadas (si no, puede venir vacío)
 	@EntityGraph(attributePaths = { "cliente", "lineas", "lineas.producto" })
 	Optional<Ruta> findWithLineasByIdAndEmpresa(Long id, String empresa);
 
@@ -69,11 +67,6 @@ public interface RutaRepository extends JpaRepository<Ruta, Long> {
 	Integer sumReservadoProductoFecha(@Param("empresa") String empresa, @Param("fecha") LocalDate fecha,
 			@Param("productoId") Long productoId);
 
-	/**
-	 * Suma de cantidad reservada de un producto para un cliente en una fecha en
-	 * rutas NO cerradas. (Esto evita “entregar varias veces el mismo producto” en
-	 * el día si ya está en otras rutas abiertas)
-	 */
 	@Query("""
 				select coalesce(sum(l.cantidad), 0)
 				from Ruta r
@@ -87,6 +80,7 @@ public interface RutaRepository extends JpaRepository<Ruta, Long> {
 	Integer sumReservadoClienteProductoFecha(@Param("empresa") String empresa, @Param("fecha") LocalDate fecha,
 			@Param("clienteId") Long clienteId, @Param("productoId") Long productoId);
 
+	// ✅ MÉTODO VIEJO: lo dejamos para no romper RutaServiceImpl
 	@Query("""
 				SELECT COALESCE(SUM(rl.cantidad), 0)
 				FROM RutaLinea rl
@@ -96,8 +90,10 @@ public interface RutaRepository extends JpaRepository<Ruta, Long> {
 				  AND rl.producto.id = :productoId
 				  AND LOWER(COALESCE(r.estado, '')) <> 'cerrada'
 			""")
-	Integer sumReservadoClienteProductoAbierto(String empresa, Long clienteId, Long productoId);
+	Integer sumReservadoClienteProductoAbierto(@Param("empresa") String empresa, @Param("clienteId") Long clienteId,
+			@Param("productoId") Long productoId);
 
+	// ✅ MÉTODO VIEJO: lo dejamos para compatibilidad
 	@Query("""
 				SELECT COALESCE(SUM(rl.cantidad), 0)
 				FROM RutaLinea rl
@@ -112,4 +108,32 @@ public interface RutaRepository extends JpaRepository<Ruta, Long> {
 			@Param("clienteId") Long clienteId, @Param("productoId") Long productoId,
 			@Param("excludeRutaId") Long excludeRutaId);
 
+	// ✅ MÉTODOS NUEVOS: para pendientes por fecha de hoy
+	@Query("""
+				SELECT COALESCE(SUM(rl.cantidad), 0)
+				FROM RutaLinea rl
+				JOIN rl.ruta r
+				WHERE r.empresa = :empresa
+				  AND r.fecha = :fecha
+				  AND r.cliente.id = :clienteId
+				  AND rl.producto.id = :productoId
+				  AND LOWER(COALESCE(r.estado, '')) <> 'cerrada'
+			""")
+	Integer sumReservadoClienteProductoAbiertoEnFecha(@Param("empresa") String empresa, @Param("fecha") LocalDate fecha,
+			@Param("clienteId") Long clienteId, @Param("productoId") Long productoId);
+
+	@Query("""
+				SELECT COALESCE(SUM(rl.cantidad), 0)
+				FROM RutaLinea rl
+				JOIN rl.ruta r
+				WHERE r.empresa = :empresa
+				  AND r.fecha = :fecha
+				  AND r.cliente.id = :clienteId
+				  AND rl.producto.id = :productoId
+				  AND LOWER(COALESCE(r.estado, '')) <> 'cerrada'
+				  AND (:excludeRutaId IS NULL OR r.id <> :excludeRutaId)
+			""")
+	Integer sumReservadoClienteProductoAbiertoEnFechaExcluyendoRuta(@Param("empresa") String empresa,
+			@Param("fecha") LocalDate fecha, @Param("clienteId") Long clienteId, @Param("productoId") Long productoId,
+			@Param("excludeRutaId") Long excludeRutaId);
 }
