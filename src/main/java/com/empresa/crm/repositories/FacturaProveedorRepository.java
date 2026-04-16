@@ -20,4 +20,6 @@ public interface FacturaProveedorRepository extends JpaRepository<FacturaProveed
 	List<FacturaProveedor> findByProveedorIdAndEmpresa(Long proveedorId, String empresa);
 
 	Optional<FacturaProveedor> findTopByEmpresaOrderByIdDesc(String empresa);
+
+	Optional<FacturaProveedor> findByAlbaranProveedorId(Long albaranProveedorId);
 }
