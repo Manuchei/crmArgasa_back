@@ -20,6 +20,9 @@ import com.empresa.crm.tenant.TenantContext;
 @Service
 public class FacturaProveedorServiceImpl implements FacturaProveedorService {
 
+	private static final double IVA_DEFECTO = 21.0;
+	private static final int DIAS_VENCIMIENTO_DEFECTO = 30;
+
 	private final FacturaProveedorRepository facturaRepo;
 	private final AlbaranProveedorRepository albaranRepo;
 
@@ -62,12 +65,9 @@ public class FacturaProveedorServiceImpl implements FacturaProveedorService {
 			throw new RuntimeException("Empresa no seleccionada");
 		}
 
-		AlbaranProveedor albaran = albaranRepo.findById(albaranId)
+		// ✅ CORREGIDO: filtrar por empresa
+		AlbaranProveedor albaran = albaranRepo.findByIdAndEmpresa(albaranId, empresa)
 				.orElseThrow(() -> new RuntimeException("Albarán no encontrado"));
-
-		if (!empresa.equalsIgnoreCase(albaran.getEmpresa())) {
-			throw new RuntimeException("El albarán no pertenece a la empresa seleccionada");
-		}
 
 		if (albaran.getProveedor() == null) {
 			throw new RuntimeException("El albarán no tiene proveedor asociado");
@@ -107,20 +107,41 @@ public class FacturaProveedorServiceImpl implements FacturaProveedorService {
 
 			LineaFacturaProveedor lineaFactura = new LineaFacturaProveedor();
 			lineaFactura.setFactura(factura);
-			lineaFactura.setTipoOrigen(lineaAlbaran.getTipo() != null ? lineaAlbaran.getTipo() : "ALBARAN_LINEA");
+			lineaFactura.setTipoOrigen(lineaAlbaran.getTipo());
 			lineaFactura.setOrigenId(lineaAlbaran.getId());
 			lineaFactura.setDescripcion(lineaAlbaran.getDescripcion());
-			lineaFactura.setCantidad(lineaAlbaran.getUnidades() != null ? lineaAlbaran.getUnidades() : 0.0);
-			lineaFactura.setPrecioUnitario(lineaAlbaran.getPrecio() != null ? lineaAlbaran.getPrecio() : 0.0);
-			lineaFactura.setDescuentoPct(lineaAlbaran.getDtoPct() != null ? lineaAlbaran.getDtoPct() : 0.0);
-			lineaFactura.setIvaPct(0.0);
-			lineaFactura.recalcular();
+
+			// ✅ DATOS DIRECTOS
+			double cantidad = lineaAlbaran.getUnidades() != null ? lineaAlbaran.getUnidades() : 0.0;
+			double precio = lineaAlbaran.getPrecio() != null ? lineaAlbaran.getPrecio() : 0.0;
+			double dtoPct = lineaAlbaran.getDtoPct() != null ? lineaAlbaran.getDtoPct() : 0.0;
+
+			lineaFactura.setCantidad(cantidad);
+			lineaFactura.setPrecioUnitario(precio);
+			lineaFactura.setDescuentoPct(dtoPct);
+			lineaFactura.setIvaPct(IVA_DEFECTO);
+
+			// ✅ CLAVE: usamos el subtotal del albarán
+			double subtotal = lineaAlbaran.getTotalLinea() != null ? lineaAlbaran.getTotalLinea() : 0.0;
+
+			double total = subtotal + (subtotal * IVA_DEFECTO / 100.0);
+
+			lineaFactura.setSubtotal(subtotal);
+			lineaFactura.setTotalLinea(total);
 
 			lineasFactura.add(lineaFactura);
 		}
 
 		factura.setLineas(lineasFactura);
-		factura.recalcularTotales();
+
+		// ✅ CLAVE: usamos totales del albarán
+		double base = albaran.getTotalImporte() != null ? albaran.getTotalImporte() : 0.0;
+		double iva = base * IVA_DEFECTO / 100.0;
+		double total = base + iva;
+
+		factura.setBaseImponible(base);
+		factura.setIvaTotal(iva);
+		factura.setTotalImporte(total);
 
 		return facturaRepo.save(factura);
 	}
@@ -141,6 +162,10 @@ public class FacturaProveedorServiceImpl implements FacturaProveedorService {
 			factura.setFechaEmision(facturaEditada.getFechaEmision());
 		}
 
+		if (facturaEditada.getFechaVencimiento() != null) {
+			factura.setFechaVencimiento(facturaEditada.getFechaVencimiento());
+		}
+
 		factura.setNumeroFacturaProveedor(facturaEditada.getNumeroFacturaProveedor());
 
 		factura.getLineas().clear();
@@ -159,7 +184,7 @@ public class FacturaProveedorServiceImpl implements FacturaProveedorService {
 				linea.setPrecioUnitario(
 						lineaEditada.getPrecioUnitario() != null ? lineaEditada.getPrecioUnitario() : 0.0);
 				linea.setDescuentoPct(lineaEditada.getDescuentoPct() != null ? lineaEditada.getDescuentoPct() : 0.0);
-				linea.setIvaPct(lineaEditada.getIvaPct() != null ? lineaEditada.getIvaPct() : 0.0);
+				linea.setIvaPct(lineaEditada.getIvaPct() != null ? lineaEditada.getIvaPct() : IVA_DEFECTO);
 				linea.recalcular();
 
 				factura.getLineas().add(linea);

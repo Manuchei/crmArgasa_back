@@ -21,13 +21,11 @@ public class AlbaranProveedorController {
 	}
 
 	@GetMapping
-	public List<AlbaranProveedor> listar(@RequestParam(required = false) String empresa,
-			@RequestParam(required = false) Long proveedorId) {
+	public List<AlbaranProveedor> listar(@RequestParam(required = false) Long proveedorId) {
 
 		if (proveedorId != null)
 			return service.findByProveedor(proveedorId);
-		if (empresa != null && !empresa.isBlank())
-			return service.findByEmpresa(empresa);
+
 		return service.findAll();
 	}
 

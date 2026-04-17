@@ -31,6 +31,9 @@ public class FacturaProveedor {
 	private String empresa;
 	private LocalDate fechaEmision;
 
+	@Column(name = "fecha_vencimiento")
+	private LocalDate fechaVencimiento;
+
 	@Column(nullable = false)
 	private String estado = "BORRADOR"; // BORRADOR | EMITIDA | PAGADA
 

@@ -30,21 +30,28 @@ public class AlbaranProveedorService {
 		this.trabajoRepo = trabajoRepo;
 	}
 
+	// =========================
+	// MÉTODOS CORREGIDOS
+	// =========================
+
 	public List<AlbaranProveedor> findAll() {
 		String empresa = TenantContext.get();
 		return albaranRepo.findByEmpresaOrderByFechaEmisionDescIdDesc(empresa);
 	}
 
 	public List<AlbaranProveedor> findByProveedor(Long proveedorId) {
-		return albaranRepo.findByProveedorIdOrderByFechaEmisionDescIdDesc(proveedorId);
+		String empresa = TenantContext.get();
+		return albaranRepo.findByProveedorIdAndEmpresaOrderByFechaEmisionDescIdDesc(proveedorId, empresa);
 	}
 
-	public List<AlbaranProveedor> findByEmpresa(String empresa) {
-		return albaranRepo.findByEmpresaOrderByFechaEmisionDescIdDesc(TenantContext.get());
+	public List<AlbaranProveedor> findByEmpresa() {
+		String empresa = TenantContext.get();
+		return albaranRepo.findByEmpresaOrderByFechaEmisionDescIdDesc(empresa);
 	}
 
 	public AlbaranProveedor findById(Long id) {
-		return albaranRepo.findById(id).orElse(null);
+		String empresa = TenantContext.get();
+		return albaranRepo.findByIdAndEmpresa(id, empresa).orElse(null);
 	}
 
 	@Transactional

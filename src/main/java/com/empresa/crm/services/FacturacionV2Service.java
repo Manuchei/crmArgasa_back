@@ -109,6 +109,7 @@ public class FacturacionV2Service {
 			String descripcion = lineaReq.descripcion() == null ? "" : lineaReq.descripcion().trim();
 			Double cantidad = lineaReq.cantidad();
 			Double precioUnitario = lineaReq.precioUnitario();
+			Double descuentoPct = lineaReq.descuentoPct();
 			Double ivaPct = lineaReq.ivaPct();
 
 			if (descripcion.isBlank()) {
@@ -120,6 +121,9 @@ public class FacturacionV2Service {
 			if (precioUnitario == null || precioUnitario < 0) {
 				throw new RuntimeException("El precio unitario no puede ser negativo");
 			}
+			if (descuentoPct == null || descuentoPct < 0 || descuentoPct > 100) {
+				throw new RuntimeException("El descuento debe estar entre 0 y 100");
+			}
 			if (ivaPct == null || ivaPct < 0) {
 				throw new RuntimeException("El IVA no puede ser negativo");
 			}
@@ -127,13 +131,9 @@ public class FacturacionV2Service {
 			linea.setDescripcion(descripcion);
 			linea.setCantidad(cantidad);
 			linea.setPrecioUnitario(precioUnitario);
+			linea.setDescuentoPct(descuentoPct);
 			linea.setIvaPct(ivaPct);
-
-			double subtotal = round2(cantidad * precioUnitario);
-			double totalLinea = round2(subtotal * (1 + (ivaPct / 100.0)));
-
-			linea.setSubtotal(subtotal);
-			linea.setTotalLinea(totalLinea);
+			linea.recalcular();
 		}
 
 		recalcularTotales(factura);
@@ -153,7 +153,8 @@ public class FacturacionV2Service {
 
 	private LineaFacturaV2Response toLineaFacturaV2Response(LineaFacturaV2 l) {
 		return new LineaFacturaV2Response(l.getId(), l.getTipoOrigen(), l.getOrigenId(), l.getDescripcion(),
-				l.getCantidad(), l.getPrecioUnitario(), l.getSubtotal(), l.getIvaPct(), l.getTotalLinea());
+				l.getCantidad(), l.getPrecioUnitario(), l.getDescuentoPct(), l.getSubtotal(), l.getIvaPct(),
+				l.getTotalLinea());
 	}
 
 	@Transactional(readOnly = true)
@@ -243,15 +244,13 @@ public class FacturacionV2Service {
 			lf.setDescripcion(s.getDescripcion());
 			lf.setCantidad(1.0);
 			lf.setPrecioUnitario(s.getImporte());
-			lf.setSubtotal(s.getImporte());
+			lf.setDescuentoPct(0.0);
 			lf.setIvaPct(21.0);
-			lf.setTotalLinea(round2(s.getImporte() * 1.21));
+			lf.recalcular();
 			lineasFactura.add(lf);
 		}
 
 		for (LineaAlbaranCliente l : lineas) {
-			double subtotal = (l.getTotalLinea() != null) ? l.getTotalLinea() : (l.getUnidades() * l.getPrecio());
-
 			LineaFacturaV2 lf = new LineaFacturaV2();
 			lf.setFactura(factura);
 			lf.setTipoOrigen("ALBARAN_LINEA");
@@ -259,9 +258,9 @@ public class FacturacionV2Service {
 			lf.setDescripcion(l.getDescripcion());
 			lf.setCantidad(l.getUnidades());
 			lf.setPrecioUnitario(l.getPrecio());
-			lf.setSubtotal(round2(subtotal));
+			lf.setDescuentoPct(l.getDtoPct() == null ? 0.0 : l.getDtoPct());
 			lf.setIvaPct(21.0);
-			lf.setTotalLinea(round2(subtotal * 1.21));
+			lf.recalcular();
 			lineasFactura.add(lf);
 		}
 
@@ -363,11 +362,20 @@ public class FacturacionV2Service {
 	}
 
 	private void recalcularTotales(FacturaV2 f) {
-		double base = f.getLineas().stream().mapToDouble(LineaFacturaV2::getSubtotal).sum();
-		double iva = f.getLineas().stream().mapToDouble(l -> l.getSubtotal() * (l.getIvaPct() / 100.0)).sum();
+		double base = 0.0;
+		double iva = 0.0;
+		double total = 0.0;
+
+		for (LineaFacturaV2 l : f.getLineas()) {
+			l.recalcular();
+			base += l.getSubtotal();
+			iva += l.getSubtotal() * (l.getIvaPct() / 100.0);
+			total += l.getTotalLinea();
+		}
+
 		f.setBaseImponible(round2(base));
 		f.setIvaTotal(round2(iva));
-		f.setTotal(round2(base + iva));
+		f.setTotal(round2(total));
 	}
 
 	private double round2(double v) {
@@ -377,7 +385,8 @@ public class FacturacionV2Service {
 	private FacturaV2Response mapResponse(FacturaV2 f) {
 		var lineas = f.getLineas().stream()
 				.map(l -> new LineaFacturaV2Response(l.getId(), l.getTipoOrigen(), l.getOrigenId(), l.getDescripcion(),
-						l.getCantidad(), l.getPrecioUnitario(), l.getSubtotal(), l.getIvaPct(), l.getTotalLinea()))
+						l.getCantidad(), l.getPrecioUnitario(), l.getDescuentoPct(), l.getSubtotal(), l.getIvaPct(),
+						l.getTotalLinea()))
 				.toList();
 
 		return new FacturaV2Response(f.getId(), f.getEmpresa(), f.getSerie(), f.getNumero(), f.getFechaEmision(),
@@ -451,7 +460,8 @@ public class FacturacionV2Service {
 		f.getLineas()
 				.forEach(l -> sb.append(l.getTipoOrigen()).append(":").append(l.getOrigenId()).append(":")
 						.append(l.getDescripcion()).append(":").append(l.getCantidad()).append(":")
-						.append(l.getPrecioUnitario()).append(":").append(l.getIvaPct()).append("|"));
+						.append(l.getPrecioUnitario()).append(":").append(l.getDescuentoPct()).append(":")
+						.append(l.getIvaPct()).append("|"));
 
 		return sha256(sb.toString());
 	}

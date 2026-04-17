@@ -51,4 +51,30 @@ public class FacturaV2 {
 
 	@OneToMany(mappedBy = "factura", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<LineaFacturaV2> lineas = new ArrayList<>();
+
+	public void recalcularTotales() {
+		double base = 0.0;
+		double iva = 0.0;
+		double totalFactura = 0.0;
+
+		if (lineas != null) {
+			for (LineaFacturaV2 linea : lineas) {
+				if (linea == null)
+					continue;
+
+				linea.recalcular();
+
+				double subtotalLinea = linea.getSubtotal() != null ? linea.getSubtotal() : 0.0;
+				double totalLinea = linea.getTotalLinea() != null ? linea.getTotalLinea() : 0.0;
+
+				base += subtotalLinea;
+				totalFactura += totalLinea;
+				iva += (totalLinea - subtotalLinea);
+			}
+		}
+
+		this.baseImponible = base;
+		this.ivaTotal = iva;
+		this.total = totalFactura;
+	}
 }
