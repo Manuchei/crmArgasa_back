@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.empresa.crm.dto.ProveedorDTO;
 import com.empresa.crm.entities.Producto;
 import com.empresa.crm.entities.Proveedor;
 import com.empresa.crm.repositories.ProductoRepository;
@@ -82,7 +83,49 @@ public class ProveedorServiceImpl implements ProveedorService {
 
 		Proveedor guardado = proveedorRepository.save(proveedor);
 
-		// ✅ recalcular SIEMPRE desde BD, no desde guardado.getTrabajos()
+		recalcularTotalesProveedor(guardado, empresa);
+
+		return proveedorRepository.save(guardado);
+	}
+
+	@Override
+	public Proveedor saveFromDto(ProveedorDTO proveedorDto) {
+		String empresa = TenantContext.get();
+
+		Proveedor proveedor;
+
+		if (proveedorDto.getId() != null) {
+			proveedor = proveedorRepository.findByIdAndEmpresa(proveedorDto.getId(), empresa)
+					.orElseThrow(() -> new RuntimeException("Proveedor no encontrado con ID: " + proveedorDto.getId()));
+		} else {
+			proveedor = new Proveedor();
+			proveedor.setProductos(new ArrayList<>());
+			proveedor.setTrabajos(new ArrayList<>());
+			proveedor.setFacturas(new ArrayList<>());
+			proveedor.setAlbaranes(new ArrayList<>());
+		}
+
+		proveedor.setEmpresa(empresa);
+		proveedor.setNombre(trim(proveedorDto.getNombre()));
+		proveedor.setOficio(trim(proveedorDto.getOficio()));
+		proveedor.setTelefono(trim(proveedorDto.getTelefono()));
+		proveedor.setEmail(trim(proveedorDto.getEmail()));
+		proveedor.setTrabajaEnArgasa(proveedorDto.isTrabajaEnArgasa());
+		proveedor.setTrabajaEnLuga(proveedorDto.isTrabajaEnLuga());
+		proveedor.setTrabajoRealizado(trim(proveedorDto.getTrabajoRealizado()));
+		proveedor.setDireccion(trim(proveedorDto.getDireccion()));
+		proveedor.setCif(trim(proveedorDto.getCif()));
+		proveedor.setFechaAltaProveedor(proveedorDto.getFechaAltaProveedor());
+		proveedor.setLocalidad(trim(proveedorDto.getLocalidad()));
+		proveedor.setCodigoPostal(trim(proveedorDto.getCodigoPostal()));
+		proveedor.setProvincia(trim(proveedorDto.getProvincia()));
+		proveedor.setPais(trim(proveedorDto.getPais()));
+		proveedor.setContacto(trim(proveedorDto.getContacto()));
+		proveedor.setDatosBancarios(trim(proveedorDto.getDatosBancarios()));
+		proveedor.setNotas(trim(proveedorDto.getNotas()));
+
+		Proveedor guardado = proveedorRepository.save(proveedor);
+
 		recalcularTotalesProveedor(guardado, empresa);
 
 		return proveedorRepository.save(guardado);
@@ -167,5 +210,9 @@ public class ProveedorServiceImpl implements ProveedorService {
 
 	private double safe(Double value) {
 		return value != null ? value : 0.0;
+	}
+
+	private String trim(String value) {
+		return value == null ? null : value.trim();
 	}
 }

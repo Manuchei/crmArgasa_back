@@ -20,7 +20,6 @@ public class Proveedor {
 	private Long id;
 
 	private String nombre;
-	private String apellido;
 	private String oficio;
 
 	@Column(nullable = true)
@@ -34,7 +33,6 @@ public class Proveedor {
 
 	private String trabajoRealizado;
 
-	// NUEVOS CAMPOS
 	private String direccion;
 	private String cif;
 
@@ -55,9 +53,6 @@ public class Proveedor {
 
 	@Column(columnDefinition = "TEXT")
 	private String notas;
-
-	@Column(columnDefinition = "TEXT")
-	private String contactos;
 
 	@OneToMany(mappedBy = "proveedor", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
 	@JsonIgnore

@@ -2,14 +2,18 @@ package com.empresa.crm.services;
 
 import java.util.List;
 
+import com.empresa.crm.dto.ProveedorDTO;
 import com.empresa.crm.entities.Proveedor;
 
 public interface ProveedorService {
+
 	List<Proveedor> findAll();
 
 	Proveedor findById(Long id);
 
 	Proveedor save(Proveedor proveedor);
+
+	Proveedor saveFromDto(ProveedorDTO proveedorDto);
 
 	void deleteById(Long id);
 

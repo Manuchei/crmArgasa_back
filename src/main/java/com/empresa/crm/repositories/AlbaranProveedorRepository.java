@@ -13,10 +13,8 @@ public interface AlbaranProveedorRepository extends JpaRepository<AlbaranProveed
 
 	List<AlbaranProveedor> findByProveedorIdOrderByFechaEmisionDescIdDesc(Long proveedorId);
 
-	// ✅ NUEVO: filtrado correcto por empresa + proveedor
 	List<AlbaranProveedor> findByProveedorIdAndEmpresaOrderByFechaEmisionDescIdDesc(Long proveedorId, String empresa);
 
-	// ✅ NUEVO: evitar mezclar empresas en findById
 	Optional<AlbaranProveedor> findByIdAndEmpresa(Long id, String empresa);
 
 	AlbaranProveedor findTopByEmpresaOrderByIdDesc(String empresa);

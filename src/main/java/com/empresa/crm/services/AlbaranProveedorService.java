@@ -7,11 +7,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.empresa.crm.entities.AlbaranProveedor;
+import com.empresa.crm.entities.FacturaProveedor;
 import com.empresa.crm.entities.LineaAlbaranProveedor;
 import com.empresa.crm.entities.Producto;
 import com.empresa.crm.entities.Proveedor;
 import com.empresa.crm.entities.Trabajo;
 import com.empresa.crm.repositories.AlbaranProveedorRepository;
+import com.empresa.crm.repositories.FacturaProveedorRepository;
 import com.empresa.crm.repositories.ProveedorRepository;
 import com.empresa.crm.repositories.TrabajoRepository;
 import com.empresa.crm.tenant.TenantContext;
@@ -22,17 +24,15 @@ public class AlbaranProveedorService {
 	private final AlbaranProveedorRepository albaranRepo;
 	private final ProveedorRepository proveedorRepo;
 	private final TrabajoRepository trabajoRepo;
+	private final FacturaProveedorRepository facturaProveedorRepo;
 
 	public AlbaranProveedorService(AlbaranProveedorRepository albaranRepo, ProveedorRepository proveedorRepo,
-			TrabajoRepository trabajoRepo) {
+			TrabajoRepository trabajoRepo, FacturaProveedorRepository facturaProveedorRepo) {
 		this.albaranRepo = albaranRepo;
 		this.proveedorRepo = proveedorRepo;
 		this.trabajoRepo = trabajoRepo;
+		this.facturaProveedorRepo = facturaProveedorRepo;
 	}
-
-	// =========================
-	// MÉTODOS CORREGIDOS
-	// =========================
 
 	public List<AlbaranProveedor> findAll() {
 		String empresa = TenantContext.get();
@@ -66,10 +66,8 @@ public class AlbaranProveedorService {
 		a.setEmpresa(empresa);
 		a.setFechaEmision(fechaEmision != null ? fechaEmision : LocalDate.now());
 
-		// Número proveedor
 		a.setNumeroProveedor(numeroProveedor != null ? numeroProveedor.trim() : null);
 
-		// Número interno + generado
 		String numeroInterno = generarNumeroInterno(empresa);
 		a.setNumeroInterno(numeroInterno);
 
@@ -79,9 +77,7 @@ public class AlbaranProveedorService {
 			a.setNumeroGenerado(numeroInterno);
 		}
 
-		// SNAPSHOT PROVEEDOR
 		a.setNombre(p.getNombre());
-		a.setApellido(p.getApellido());
 		a.setOficio(p.getOficio());
 		a.setCif(p.getCif());
 		a.setDireccion(p.getDireccion());
@@ -94,9 +90,7 @@ public class AlbaranProveedorService {
 		a.setContacto(p.getContacto());
 		a.setDatosBancarios(p.getDatosBancarios());
 		a.setNotas(p.getNotas());
-		a.setContactos(p.getContactos());
 
-		// ===== TRABAJOS -> LÍNEAS =====
 		List<Trabajo> trabajos = trabajoRepo.findByProveedorIdAndEmpresa(proveedorId, empresa);
 
 		if (trabajos != null) {
@@ -123,7 +117,6 @@ public class AlbaranProveedorService {
 			}
 		}
 
-		// ===== PRODUCTOS -> LÍNEAS =====
 		if (p.getProductos() != null) {
 			for (Producto prod : p.getProductos()) {
 				if (prod == null)
@@ -179,7 +172,22 @@ public class AlbaranProveedorService {
 
 	@Transactional
 	public void deleteById(Long id) {
-		albaranRepo.deleteById(id);
+		String empresa = TenantContext.get();
+
+		AlbaranProveedor albaran = albaranRepo.findByIdAndEmpresa(id, empresa)
+				.orElseThrow(() -> new RuntimeException("Albarán no encontrado"));
+
+		List<FacturaProveedor> facturasAsociadas = facturaProveedorRepo.findAllByAlbaranProveedorIdAndEmpresa(id,
+				empresa);
+
+		if (facturasAsociadas != null && !facturasAsociadas.isEmpty()) {
+			for (FacturaProveedor factura : facturasAsociadas) {
+				factura.setAlbaranProveedor(null);
+			}
+			facturaProveedorRepo.saveAll(facturasAsociadas);
+		}
+
+		albaranRepo.delete(albaran);
 	}
 
 	@Transactional

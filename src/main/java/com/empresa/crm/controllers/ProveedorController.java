@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.*;
 
 import lombok.RequiredArgsConstructor;
 
+import com.empresa.crm.dto.ProveedorDTO;
 import com.empresa.crm.entities.Proveedor;
 import com.empresa.crm.services.ProveedorService;
 
@@ -28,14 +29,14 @@ public class ProveedorController {
 	}
 
 	@PostMapping
-	public Proveedor crear(@RequestBody Proveedor proveedor) {
-		return proveedorService.save(proveedor);
+	public Proveedor crear(@RequestBody ProveedorDTO proveedorDto) {
+		return proveedorService.saveFromDto(proveedorDto);
 	}
 
 	@PutMapping("/{id}")
-	public Proveedor actualizar(@PathVariable Long id, @RequestBody Proveedor proveedor) {
-		proveedor.setId(id);
-		return proveedorService.save(proveedor);
+	public Proveedor actualizar(@PathVariable Long id, @RequestBody ProveedorDTO proveedorDto) {
+		proveedorDto.setId(id);
+		return proveedorService.saveFromDto(proveedorDto);
 	}
 
 	@DeleteMapping("/{id}")

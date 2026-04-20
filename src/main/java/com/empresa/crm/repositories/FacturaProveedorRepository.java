@@ -22,4 +22,8 @@ public interface FacturaProveedorRepository extends JpaRepository<FacturaProveed
 	Optional<FacturaProveedor> findTopByEmpresaOrderByIdDesc(String empresa);
 
 	Optional<FacturaProveedor> findByAlbaranProveedorId(Long albaranProveedorId);
+
+	List<FacturaProveedor> findAllByAlbaranProveedorIdAndEmpresa(Long albaranProveedorId, String empresa);
+
+	boolean existsByAlbaranProveedor_IdAndEmpresa(Long albaranProveedorId, String empresa);
 }

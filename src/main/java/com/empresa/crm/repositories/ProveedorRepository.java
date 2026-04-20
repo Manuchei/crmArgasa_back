@@ -18,25 +18,36 @@ public interface ProveedorRepository extends JpaRepository<Proveedor, Long> {
 
 	List<Proveedor> findByTrabajaEnLugaTrue();
 
-	@Query("SELECT p FROM Proveedor p " + "WHERE LOWER(p.nombre) LIKE LOWER(CONCAT('%', :texto, '%')) "
-			+ "   OR LOWER(COALESCE(p.apellido, '')) LIKE LOWER(CONCAT('%', :texto, '%'))")
+	@Query("""
+			SELECT p FROM Proveedor p
+			WHERE LOWER(COALESCE(p.nombre, '')) LIKE LOWER(CONCAT('%', :texto, '%'))
+			   OR LOWER(COALESCE(p.contacto, '')) LIKE LOWER(CONCAT('%', :texto, '%'))
+			""")
 	List<Proveedor> buscarPorNombreOApellido(@Param("texto") String texto);
 
-	@Query("SELECT p FROM Proveedor p " + "WHERE (LOWER(p.nombre) LIKE LOWER(CONCAT('%', :texto, '%')) "
-			+ "    OR LOWER(COALESCE(p.apellido, '')) LIKE LOWER(CONCAT('%', :texto, '%'))) "
-			+ "AND LOWER(p.empresa) = LOWER(:empresa)")
+	@Query("""
+			SELECT p FROM Proveedor p
+			WHERE (
+				LOWER(COALESCE(p.nombre, '')) LIKE LOWER(CONCAT('%', :texto, '%'))
+				OR LOWER(COALESCE(p.contacto, '')) LIKE LOWER(CONCAT('%', :texto, '%'))
+			)
+			AND LOWER(COALESCE(p.empresa, '')) = LOWER(:empresa)
+			""")
 	List<Proveedor> buscarPorNombreYEmpresa(@Param("texto") String texto, @Param("empresa") String empresa);
 
 	@Query("""
-			    SELECT p FROM Proveedor p
-			    WHERE (:texto = '' OR LOWER(p.nombre) LIKE LOWER(CONCAT('%', :texto, '%'))
-			           OR LOWER(COALESCE(p.apellido, '')) LIKE LOWER(CONCAT('%', :texto, '%'))
-			           OR LOWER(COALESCE(p.contacto, '')) LIKE LOWER(CONCAT('%', :texto, '%'))
-			           OR LOWER(COALESCE(p.cif, '')) LIKE LOWER(CONCAT('%', :texto, '%')))
-			    AND (:empresa = '' OR LOWER(p.empresa) = LOWER(:empresa))
-			    AND (:oficio = '' OR LOWER(COALESCE(p.oficio, '')) = LOWER(:oficio))
+			SELECT p FROM Proveedor p
+			WHERE (
+				:texto = ''
+				OR LOWER(COALESCE(p.nombre, '')) LIKE LOWER(CONCAT('%', :texto, '%'))
+				OR LOWER(COALESCE(p.contacto, '')) LIKE LOWER(CONCAT('%', :texto, '%'))
+				OR LOWER(COALESCE(p.cif, '')) LIKE LOWER(CONCAT('%', :texto, '%'))
+			)
+			AND (:empresa = '' OR LOWER(COALESCE(p.empresa, '')) = LOWER(:empresa))
+			AND (:oficio = '' OR LOWER(COALESCE(p.oficio, '')) = LOWER(:oficio))
 			""")
-	List<Proveedor> buscarAvanzado(@Param("texto") String texto, @Param("empresa") String empresa,
+	List<Proveedor> buscarAvanzado(@Param("texto") String texto,
+			@Param("empresa") String empresa,
 			@Param("oficio") String oficio);
 
 	List<Proveedor> findByEmpresa(String empresa);
