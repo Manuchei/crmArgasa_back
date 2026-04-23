@@ -5,11 +5,13 @@ import lombok.Data;
 
 @Data
 public class RutaDiaRequestDTO {
-    private String fecha; // "yyyy-MM-dd" o "dd/MM/yyyy"
+
+    private String fecha;
+    private Long transportistaId; // ✅ nuevo
     private String nombreTransportista;
     private String emailTransportista;
-    private String estado; // opcional (si no viene, "pendiente")
+    private String estado;
     private List<RutaDiaItemDTO> rutas;
 
-    private String empresa; // OBLIGATORIA (ARGASA / ELECTROLUGA)
+    private String empresa;
 }

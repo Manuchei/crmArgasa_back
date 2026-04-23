@@ -1,8 +1,13 @@
+# URL de tu API (AJUSTA si es otro endpoint)
+$base = $base = "http://localhost:9018/api/auth/register"
+
+# Body
 $body = @{
-  nombre = "Admin"
-  email = "admin@electrolugargasa.com"
-  password = "admin1234"
-  rol = "ADMIN"
+    nombre = "Transportista"
+    email = "manuel@electrolugargasa.com"
+    password = "manuel1234"
+    rol = "TRANSPORTISTA"
 } | ConvertTo-Json
 
+# Petición POST
 Invoke-RestMethod -Method Post -Uri $base -ContentType "application/json" -Body $body

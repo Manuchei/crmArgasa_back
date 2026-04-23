@@ -8,8 +8,9 @@ import lombok.Data;
 @Data
 public class RutaRequestDTO {
 
-	private Long clienteId; // ✅ obligatorio
-	private String empresa; // opcional (si no viene, se pilla de header o del cliente)
+	private Long clienteId;
+	private Long transportistaId; // ✅ nuevo
+	private String empresa;
 
 	private String nombreTransportista;
 	private String emailTransportista;
