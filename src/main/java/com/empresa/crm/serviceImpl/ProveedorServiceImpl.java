@@ -67,17 +67,26 @@ public class ProveedorServiceImpl implements ProveedorService {
 			producto.setProveedor(proveedor);
 			producto.setEmpresa(empresa);
 
-			if (producto.getCodigo() != null) {
-				producto.setCodigo(producto.getCodigo().trim());
+			if (producto.getReferencia() != null) {
+				producto.setReferencia(producto.getReferencia().trim());
 			}
-			if (producto.getNombre() != null) {
-				producto.setNombre(producto.getNombre().trim());
+			if (producto.getMarca() != null) {
+				producto.setMarca(producto.getMarca().trim());
 			}
 			if (producto.getModelo() != null) {
 				producto.setModelo(producto.getModelo().trim());
 			}
-			if (producto.getPrecioSinIva() == null) {
-				producto.setPrecioSinIva(0.0);
+			if (producto.getFamilia() != null) {
+				producto.setFamilia(producto.getFamilia().trim());
+			}
+			if (producto.getSubfamilia() != null) {
+				producto.setSubfamilia(producto.getSubfamilia().trim());
+			}
+			if (producto.getDescripcion() != null) {
+				producto.setDescripcion(producto.getDescripcion().trim());
+			}
+			if (producto.getUnidades() == null) {
+				producto.setUnidades(0);
 			}
 		}
 
@@ -189,9 +198,8 @@ public class ProveedorServiceImpl implements ProveedorService {
 
 		if (proveedor.getProductos() != null) {
 			for (Producto producto : proveedor.getProductos()) {
-				double precio = safe(producto.getPrecioSinIva());
-				double stock = producto.getStock();
-				totalProductos += precio * stock;
+				double unidades = producto.getUnidades() != null ? producto.getUnidades() : 0;
+				totalProductos += unidades;
 			}
 		}
 

@@ -75,18 +75,20 @@ public class ClienteProductoController {
 		}
 
 		Map<Long, Integer> unidadesPorProducto = new HashMap<>();
+
 		for (Trabajo t : trabajosPendientes) {
 			Long pid = t.getProductoId();
 			int u = safeInt(t.getUnidades());
+
 			if (u <= 0) {
 				u = 1;
 			}
+
 			unidadesPorProducto.merge(pid, u, Integer::sum);
 		}
 
 		List<Long> ids = new ArrayList<>(unidadesPorProducto.keySet());
 
-		// ✅ Filtramos además por empresa para evitar mezclar productos
 		List<Producto> productos = productoRepo.findAllById(ids).stream()
 				.filter(p -> p.getEmpresa() != null && p.getEmpresa().equalsIgnoreCase(empresa))
 				.collect(Collectors.toList());
@@ -101,7 +103,8 @@ public class ClienteProductoController {
 
 			int pendienteReal = Math.max(totalPendienteTrabajo - reservadoAbierto, 0);
 
-			return new ClienteProductoCompradoDTO(p.getId(), p.getCodigo(), p.getNombre(), pendienteReal, false, null);
+			return new ClienteProductoCompradoDTO(p.getId(), p.getReferencia(), p.getDescripcion(), pendienteReal,
+					false, null);
 		}).filter(dto -> dto.getCantidad() != null && dto.getCantidad() > 0)
 				.sorted(Comparator.comparing(ClienteProductoCompradoDTO::getNombre, String.CASE_INSENSITIVE_ORDER))
 				.collect(Collectors.toList());
@@ -130,24 +133,27 @@ public class ClienteProductoController {
 		}
 
 		int cantidad = req.getCantidad() != null ? req.getCantidad() : 1;
+
 		if (cantidad <= 0) {
 			cantidad = 1;
 		}
 
 		Producto p = productoRepo.findById(productoId).orElseThrow(() -> new RuntimeException("Producto no existe"));
 
-		if (!p.getEmpresa().equalsIgnoreCase(empresa)) {
+		if (p.getEmpresa() == null || !p.getEmpresa().equalsIgnoreCase(empresa)) {
 			throw new RuntimeException("Producto no pertenece a la empresa activa");
 		}
 
-		int stockActual = safeInt(p.getStock());
-		if (cantidad > stockActual) {
-			throw new RuntimeException("Stock insuficiente");
+		int unidadesActuales = safeInt(p.getUnidades());
+
+		if (cantidad > unidadesActuales) {
+			throw new RuntimeException("Unidades insuficientes");
 		}
 
-		int updated = productoRepo.decrementStockIfAvailable(productoId, cantidad, empresa);
+		int updated = productoRepo.decrementUnidadesIfAvailable(productoId, cantidad, empresa);
+
 		if (updated == 0) {
-			throw new RuntimeException("Stock insuficiente");
+			throw new RuntimeException("Unidades insuficientes");
 		}
 
 		Trabajo t = new Trabajo();
@@ -157,7 +163,7 @@ public class ClienteProductoController {
 		t.setDescuento(req.getDescuento() != null ? req.getDescuento() : 0.0);
 		t.setImportePagado(req.getImportePagado() != null ? req.getImportePagado() : 0.0);
 		t.setEmpresa(empresa);
-		t.setDescripcion(p.getNombre());
+		t.setDescripcion(p.getDescripcion());
 
 		ClienteProductoAsignarDTO dto = new ClienteProductoAsignarDTO();
 		dto.setClienteId(clienteId);
@@ -190,6 +196,7 @@ public class ClienteProductoController {
 				.orElseThrow(() -> new RuntimeException("No existe ese producto pendiente en el cliente"));
 
 		int actual = safeInt(trabajo.getUnidades());
+
 		if (actual <= 0) {
 			actual = 1;
 		}
@@ -201,21 +208,22 @@ public class ClienteProductoController {
 			return ResponseEntity.ok(trabajo);
 		}
 
-		// AUMENTAR
 		if (cantidad > actual) {
 			int diff = cantidad - actual;
 
 			Producto producto = productoRepo.findByIdAndEmpresa(productoId, empresa)
 					.orElseThrow(() -> new RuntimeException("Producto no encontrado"));
 
-			int stockActual = safeInt(producto.getStock());
-			if (diff > stockActual) {
-				throw new RuntimeException("Stock insuficiente");
+			int unidadesActuales = safeInt(producto.getUnidades());
+
+			if (diff > unidadesActuales) {
+				throw new RuntimeException("Unidades insuficientes");
 			}
 
-			int updated = productoRepo.decrementStockIfAvailable(productoId, diff, empresa);
+			int updated = productoRepo.decrementUnidadesIfAvailable(productoId, diff, empresa);
+
 			if (updated == 0) {
-				throw new RuntimeException("Stock insuficiente");
+				throw new RuntimeException("Unidades insuficientes");
 			}
 
 			trabajo.setUnidades(cantidad);
@@ -230,11 +238,10 @@ public class ClienteProductoController {
 			return ResponseEntity.ok(trabajo);
 		}
 
-		// DISMINUIR
 		int diff = actual - cantidad;
 
 		if (diff > 0) {
-			productoRepo.incrementStockByEmpresa(productoId, diff, empresa);
+			productoRepo.incrementUnidadesByEmpresa(productoId, diff, empresa);
 		}
 
 		if (cp != null) {
@@ -279,6 +286,7 @@ public class ClienteProductoController {
 		}
 
 		Map<Long, Integer> unidadesPorProducto = new HashMap<>();
+
 		for (Trabajo t : trabajos) {
 			Long pid = t.getProductoId();
 			int u = safeInt(t.getUnidades());
@@ -286,10 +294,13 @@ public class ClienteProductoController {
 		}
 
 		List<Long> ids = new ArrayList<>(unidadesPorProducto.keySet());
-		List<Producto> productos = productoRepo.findAllById(ids);
+
+		List<Producto> productos = productoRepo.findAllById(ids).stream()
+				.filter(p -> p.getEmpresa() != null && p.getEmpresa().equalsIgnoreCase(empresa))
+				.collect(Collectors.toList());
 
 		List<ClienteProductoCompradoDTO> res = productos.stream()
-				.map(p -> new ClienteProductoCompradoDTO(p.getId(), p.getCodigo(), p.getNombre(),
+				.map(p -> new ClienteProductoCompradoDTO(p.getId(), p.getReferencia(), p.getDescripcion(),
 						unidadesPorProducto.getOrDefault(p.getId(), 0), false, null))
 				.sorted(Comparator.comparing(ClienteProductoCompradoDTO::getNombre, String.CASE_INSENSITIVE_ORDER))
 				.collect(Collectors.toList());
@@ -346,6 +357,7 @@ public class ClienteProductoController {
 		if (entregada < 0) {
 			entregada = 0;
 		}
+
 		if (entregada > total) {
 			entregada = total;
 		}

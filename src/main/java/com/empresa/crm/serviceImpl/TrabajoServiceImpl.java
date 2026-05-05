@@ -45,10 +45,8 @@ public class TrabajoServiceImpl implements TrabajoService {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La empresa del trabajo es obligatoria");
 		}
 
-		// Si viene de proveedor, preparamos datos de albarán
 		prepararDatosAlbaranProveedor(trabajo);
 
-		// ✅ Si viene con producto, heredamos datos del producto
 		if (trabajo.getProductoId() != null) {
 
 			Producto producto = productoRepo.findById(trabajo.getProductoId())
@@ -64,14 +62,15 @@ public class TrabajoServiceImpl implements TrabajoService {
 						+ trabajo.getEmpresa() + ", producto=" + producto.getEmpresa() + ")");
 			}
 
-			trabajo.setPrecioUnitario(producto.getPrecioSinIva() != null ? producto.getPrecioSinIva() : 0.0);
+			if (trabajo.getPrecioUnitario() == null) {
+				trabajo.setPrecioUnitario(0.0);
+			}
 
 			if (trabajo.getDescripcion() == null || trabajo.getDescripcion().isBlank()) {
-				trabajo.setDescripcion(producto.getNombre());
+				trabajo.setDescripcion(producto.getDescripcion());
 			}
 		}
 
-		// ✅ Si es manual, usamos el importe introducido como precioUnitario
 		if (trabajo.getProductoId() == null) {
 			if (trabajo.getUnidades() == null || trabajo.getUnidades() <= 0) {
 				trabajo.setUnidades(1);
@@ -110,10 +109,11 @@ public class TrabajoServiceImpl implements TrabajoService {
 		if (productoId != null) {
 			int cantidad = (t.getUnidades() != null && t.getUnidades() > 0) ? t.getUnidades() : 1;
 
-			int updated = productoRepo.incrementStockByEmpresa(productoId, cantidad, t.getEmpresa());
+			int updated = productoRepo.incrementUnidadesByEmpresa(productoId, cantidad, t.getEmpresa());
+
 			if (updated == 0) {
 				throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-						"No se pudo reponer stock (producto/empresa no coinciden)");
+						"No se pudo reponer unidades (producto/empresa no coinciden)");
 			}
 		}
 
@@ -148,13 +148,15 @@ public class TrabajoServiceImpl implements TrabajoService {
 
 			if (t.getProductoId() != null) {
 				Producto p = productoRepo.findById(t.getProductoId()).orElse(null);
+
 				if (p != null) {
-					dto.setCodigo(p.getCodigo());
-					dto.setNombre(p.getNombre());
+					dto.setCodigo(p.getReferencia());
+					dto.setNombre(p.getDescripcion());
 				} else {
 					dto.setCodigo(null);
 					dto.setNombre(t.getDescripcion());
 				}
+
 			} else {
 				dto.setCodigo(null);
 				dto.setNombre(t.getDescripcion());
@@ -184,6 +186,7 @@ public class TrabajoServiceImpl implements TrabajoService {
 		if (clienteId == null || productoId == null) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "clienteId y productoId son obligatorios");
 		}
+
 		if (empresa == null || empresa.isBlank()) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "empresa es obligatoria");
 		}
@@ -195,10 +198,11 @@ public class TrabajoServiceImpl implements TrabajoService {
 
 		int cantidad = (t.getUnidades() != null && t.getUnidades() > 0) ? t.getUnidades() : 1;
 
-		int updated = productoRepo.incrementStockByEmpresa(productoId, cantidad, empresa);
+		int updated = productoRepo.incrementUnidadesByEmpresa(productoId, cantidad, empresa);
+
 		if (updated == 0) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-					"No se pudo reponer stock (empresa/producto incorrectos)");
+					"No se pudo reponer unidades (empresa/producto incorrectos)");
 		}
 
 		trabajoRepository.delete(t);
@@ -228,6 +232,7 @@ public class TrabajoServiceImpl implements TrabajoService {
 		}
 
 		String[] partes = numeroInterno.split("-");
+
 		if (partes.length < 2) {
 			return 0;
 		}
@@ -243,11 +248,13 @@ public class TrabajoServiceImpl implements TrabajoService {
 		Trabajo ultimo = trabajoRepository.findTopByEmpresaAndNumeroInternoAlbaranIsNotNullOrderByIdDesc(empresa);
 
 		int siguiente = 1;
+
 		if (ultimo != null && ultimo.getNumeroInternoAlbaran() != null) {
 			siguiente = extraerSecuencia(ultimo.getNumeroInternoAlbaran()) + 1;
 		}
 
 		String prefijo = normalizarPrefijoEmpresa(empresa);
+
 		return prefijo + "-" + String.format("%05d", siguiente);
 	}
 
@@ -269,7 +276,9 @@ public class TrabajoServiceImpl implements TrabajoService {
 
 		if (hayNumeroProveedor
 				&& (trabajo.getNumeroInternoAlbaran() == null || trabajo.getNumeroInternoAlbaran().isBlank())) {
+
 			String numeroInterno = generarNumeroInternoAlbaran(trabajo.getEmpresa());
+
 			trabajo.setNumeroInternoAlbaran(numeroInterno);
 			trabajo.setNumeroAlbaranGenerado(numeroInterno + " / " + trabajo.getNumeroAlbaranProveedor().trim());
 		}

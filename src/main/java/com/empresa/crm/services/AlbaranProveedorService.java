@@ -95,12 +95,14 @@ public class AlbaranProveedorService {
 
 		if (trabajos != null) {
 			for (Trabajo t : trabajos) {
-				if (t == null)
+				if (t == null) {
 					continue;
+				}
 
 				String desc = t.getDescripcion() != null ? t.getDescripcion().trim() : "";
-				if (desc.isBlank())
+				if (desc.isBlank()) {
 					continue;
+				}
 
 				LineaAlbaranProveedor l = new LineaAlbaranProveedor();
 				l.setAlbaran(a);
@@ -119,21 +121,23 @@ public class AlbaranProveedorService {
 
 		if (p.getProductos() != null) {
 			for (Producto prod : p.getProductos()) {
-				if (prod == null)
+				if (prod == null) {
 					continue;
+				}
 
-				String nombre = prod.getNombre() != null ? prod.getNombre().trim() : "";
-				if (nombre.isBlank())
+				String descripcion = prod.getDescripcion() != null ? prod.getDescripcion().trim() : "";
+				if (descripcion.isBlank()) {
 					continue;
+				}
 
 				LineaAlbaranProveedor l = new LineaAlbaranProveedor();
 				l.setAlbaran(a);
 				l.setEmpresa(empresa);
 				l.setTipo("PRODUCTO");
-				l.setCodigo(prod.getCodigo());
-				l.setDescripcion(nombre);
-				l.setUnidades((double) Math.max(prod.getStock(), 0));
-				l.setPrecio(safe(prod.getPrecioSinIva()));
+				l.setCodigo(prod.getReferencia());
+				l.setDescripcion(descripcion);
+				l.setUnidades((double) Math.max(prod.getUnidades() != null ? prod.getUnidades() : 0, 0));
+				l.setPrecio(0.0);
 				l.setDtoPct(0.0);
 				l.recalcular();
 
@@ -149,8 +153,9 @@ public class AlbaranProveedorService {
 	public AlbaranProveedor save(AlbaranProveedor albaran) {
 		if (albaran.getLineas() != null) {
 			for (LineaAlbaranProveedor l : albaran.getLineas()) {
-				if (l == null)
+				if (l == null) {
 					continue;
+				}
 
 				l.setAlbaran(albaran);
 
@@ -184,6 +189,7 @@ public class AlbaranProveedorService {
 			for (FacturaProveedor factura : facturasAsociadas) {
 				factura.setAlbaranProveedor(null);
 			}
+
 			facturaProveedorRepo.saveAll(facturasAsociadas);
 		}
 
@@ -193,10 +199,14 @@ public class AlbaranProveedorService {
 	@Transactional
 	public AlbaranProveedor agregarLinea(Long albaranId, LineaAlbaranProveedor linea) {
 		AlbaranProveedor a = findById(albaranId);
-		if (a == null)
+
+		if (a == null) {
 			throw new RuntimeException("Albarán no encontrado");
-		if (linea == null)
+		}
+
+		if (linea == null) {
 			throw new RuntimeException("Línea inválida");
+		}
 
 		linea.setAlbaran(a);
 
@@ -219,8 +229,10 @@ public class AlbaranProveedorService {
 	@Transactional
 	public AlbaranProveedor eliminarLinea(Long albaranId, Long lineaId) {
 		AlbaranProveedor a = findById(albaranId);
-		if (a == null)
+
+		if (a == null) {
 			throw new RuntimeException("Albarán no encontrado");
+		}
 
 		if (a.getLineas() != null) {
 			a.getLineas().removeIf(l -> l != null && l.getId() != null && l.getId().equals(lineaId));
@@ -233,8 +245,10 @@ public class AlbaranProveedorService {
 	@Transactional
 	public AlbaranProveedor confirmar(Long albaranId) {
 		AlbaranProveedor a = findById(albaranId);
-		if (a == null)
+
+		if (a == null) {
 			throw new RuntimeException("Albarán no encontrado");
+		}
 
 		a.setConfirmado(true);
 		a.recalcularTotales();
@@ -246,21 +260,26 @@ public class AlbaranProveedorService {
 		AlbaranProveedor ultimo = albaranRepo.findTopByEmpresaOrderByIdDesc(empresa);
 
 		int siguiente = 1;
+
 		if (ultimo != null && ultimo.getNumeroInterno() != null && !ultimo.getNumeroInterno().isBlank()) {
 			siguiente = extraerSecuencia(ultimo.getNumeroInterno()) + 1;
 		}
 
 		String prefijo = normalizarPrefijoEmpresa(empresa);
+
 		return prefijo + "-" + String.format("%05d", siguiente);
 	}
 
 	private int extraerSecuencia(String numeroInterno) {
-		if (numeroInterno == null || numeroInterno.isBlank())
+		if (numeroInterno == null || numeroInterno.isBlank()) {
 			return 0;
+		}
 
 		String[] partes = numeroInterno.split("-");
-		if (partes.length < 2)
+
+		if (partes.length < 2) {
 			return 0;
+		}
 
 		try {
 			return Integer.parseInt(partes[1]);
@@ -270,15 +289,19 @@ public class AlbaranProveedorService {
 	}
 
 	private String normalizarPrefijoEmpresa(String empresa) {
-		if (empresa == null || empresa.isBlank())
+		if (empresa == null || empresa.isBlank()) {
 			return "GEN";
+		}
 
 		String valor = empresa.trim().toUpperCase();
 
-		if (valor.contains("ARGASA"))
+		if (valor.contains("ARGASA")) {
 			return "ARG";
-		if (valor.contains("LUGA") || valor.contains("ELECTROLUGA"))
+		}
+
+		if (valor.contains("LUGA") || valor.contains("ELECTROLUGA")) {
 			return "LUG";
+		}
 
 		return valor.length() >= 3 ? valor.substring(0, 3) : valor;
 	}
@@ -288,8 +311,10 @@ public class AlbaranProveedorService {
 	}
 
 	private int safeInt(Integer v, int def) {
-		if (v == null)
+		if (v == null) {
 			return def;
+		}
+
 		return v <= 0 ? def : v;
 	}
 }
