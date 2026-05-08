@@ -4,11 +4,14 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.empresa.crm.dto.ProductoPendienteDto;
 import com.empresa.crm.entities.ClienteProducto;
+
+import jakarta.transaction.Transactional;
 
 public interface ClienteProductoRepository extends JpaRepository<ClienteProducto, Long> {
 
@@ -37,9 +40,8 @@ public interface ClienteProductoRepository extends JpaRepository<ClienteProducto
 	List<ClienteProducto> findAllByEmpresaAndClienteId(@Param("empresa") String empresa,
 			@Param("clienteId") Long clienteId);
 
-	// OJO: delete por @Query necesita @Modifying, pero como ya lo tenías así, lo
-	// dejo tal cual.
-	// Si no te funciona, te lo corrijo luego (añadiendo @Modifying).
+	@Transactional
+	@Modifying
 	@Query("""
 			delete from ClienteProducto cp
 			where cp.empresa = :empresa
@@ -49,21 +51,20 @@ public interface ClienteProductoRepository extends JpaRepository<ClienteProducto
 	void deleteByEmpresaAndClienteIdAndProductoId(@Param("empresa") String empresa, @Param("clienteId") Long clienteId,
 			@Param("productoId") Long productoId);
 
-	// ✅ EL BUENO: SOLO PENDIENTES REALES (cantidadTotal - cantidadEntregada) > 0
 	@Query("""
-			    select new com.empresa.crm.dto.ProductoPendienteDto(
-			        p.id,
-			        p.codigo,
-			        p.nombre,
-			        sum( (cp.cantidadTotal - cp.cantidadEntregada) * 1L )
-			    )
-			    from ClienteProducto cp
-			    join cp.producto p
-			    where cp.cliente.id = :clienteId
-			      and cp.empresa = :empresa
-			      and lower(p.empresa) = lower(:empresa)
-			    group by p.id, p.codigo, p.nombre
-			    having sum( (cp.cantidadTotal - cp.cantidadEntregada) * 1L ) > 0
+			select new com.empresa.crm.dto.ProductoPendienteDto(
+				p.id,
+				p.referencia,
+				p.descripcion,
+				sum( (cp.cantidadTotal - cp.cantidadEntregada) * 1L )
+			)
+			from ClienteProducto cp
+			join cp.producto p
+			where cp.cliente.id = :clienteId
+			  and cp.empresa = :empresa
+			  and lower(p.empresa) = lower(:empresa)
+			group by p.id, p.referencia, p.descripcion
+			having sum( (cp.cantidadTotal - cp.cantidadEntregada) * 1L ) > 0
 			""")
 	List<ProductoPendienteDto> findPendientesPorCliente(@Param("clienteId") Long clienteId,
 			@Param("empresa") String empresa);
