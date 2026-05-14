@@ -33,6 +33,9 @@ public class Producto {
 	private String referencia;
 
 	@Column(nullable = false)
+	private String gama;
+
+	@Column(nullable = false)
 	private String marca;
 
 	@Column(nullable = false)
@@ -47,9 +50,9 @@ public class Producto {
 	@Column(nullable = false, length = 1000)
 	private String descripcion;
 
-	@Column(nullable = false, unique = true)
-	private String gama; // número de referencia interna automático
+	@Column(name = "precio_sin_iva", nullable = false)
+	private Double precioSinIva = 0.0;
 
 	@Column(nullable = false)
-	private String empresa; // "ARGASA" O "ELECTROLUGA"
+	private String empresa;
 }

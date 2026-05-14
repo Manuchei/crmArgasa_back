@@ -20,190 +20,180 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ProductoServiceImpl implements ProductoService {
 
-    private final ProductoRepository repo;
-    private final ProductoMovimientoRepository movimientoRepo;
+	private final ProductoRepository repo;
+	private final ProductoMovimientoRepository movimientoRepo;
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<Producto> listarPorEmpresa(String empresa) {
-        validarEmpresa(empresa);
-        return repo.findByEmpresa(empresa);
-    }
+	@Override
+	@Transactional(readOnly = true)
+	public List<Producto> listarPorEmpresa(String empresa) {
+		validarEmpresa(empresa);
+		return repo.findByEmpresa(empresa);
+	}
 
-    @Override
-    @Transactional
-    public Producto crearProducto(Producto producto, String empresa) {
-        validarEmpresa(empresa);
-        validarProducto(producto);
+	@Override
+	@Transactional
+	public Producto crearProducto(Producto producto, String empresa) {
+		validarEmpresa(empresa);
+		validarProducto(producto);
 
-        String referencia = producto.getReferencia().trim();
+		producto.setFechaAlta(producto.getFechaAlta() != null ? producto.getFechaAlta() : LocalDate.now());
+		producto.setReferencia(generarReferencia());
+		producto.setGama(producto.getGama().trim());
+		producto.setMarca(producto.getMarca().trim());
+		producto.setModelo(producto.getModelo().trim());
+		producto.setFamilia(producto.getFamilia().trim());
+		producto.setSubfamilia(producto.getSubfamilia().trim());
+		producto.setDescripcion(producto.getDescripcion().trim());
+		producto.setUnidades(producto.getUnidades() != null ? producto.getUnidades() : 0);
+		producto.setPrecioSinIva(producto.getPrecioSinIva() != null ? producto.getPrecioSinIva() : 0.0);
+		producto.setEmpresa(empresa);
 
-        if (repo.findByReferencia(referencia).isPresent()) {
-            throw new IllegalArgumentException("Ya existe un producto con esa referencia");
-        }
+		return repo.save(producto);
+	}
 
-        producto.setFechaAlta(producto.getFechaAlta() != null ? producto.getFechaAlta() : LocalDate.now());
-        producto.setReferencia(referencia);
-        producto.setMarca(producto.getMarca().trim());
-        producto.setModelo(producto.getModelo().trim());
-        producto.setFamilia(producto.getFamilia().trim());
-        producto.setSubfamilia(producto.getSubfamilia().trim());
-        producto.setDescripcion(producto.getDescripcion().trim());
-        producto.setUnidades(producto.getUnidades() != null ? producto.getUnidades() : 0);
-        producto.setEmpresa(empresa);
+	@Override
+	@Transactional
+	public Producto actualizarProducto(Long id, Producto producto, String empresa) {
+		validarEmpresa(empresa);
+		validarProducto(producto);
 
-        // Referencia interna automática
-        producto.setGama(generarGama());
+		Producto existente = repo.findByIdAndEmpresa(id, empresa)
+				.orElseThrow(() -> new IllegalArgumentException("Producto no encontrado para empresa " + empresa));
 
-        return repo.save(producto);
-    }
+		existente.setFechaAlta(producto.getFechaAlta() != null ? producto.getFechaAlta() : existente.getFechaAlta());
+		existente.setProveedor(producto.getProveedor());
+		existente.setUnidades(producto.getUnidades() != null ? producto.getUnidades() : 0);
+		existente.setGama(producto.getGama().trim());
+		existente.setMarca(producto.getMarca().trim());
+		existente.setModelo(producto.getModelo().trim());
+		existente.setFamilia(producto.getFamilia().trim());
+		existente.setSubfamilia(producto.getSubfamilia().trim());
+		existente.setDescripcion(producto.getDescripcion().trim());
+		existente.setPrecioSinIva(producto.getPrecioSinIva() != null ? producto.getPrecioSinIva() : 0.0);
+		existente.setEmpresa(empresa);
 
-    @Override
-    @Transactional
-    public Producto actualizarProducto(Long id, Producto producto, String empresa) {
-        validarEmpresa(empresa);
-        validarProducto(producto);
+		if (existente.getReferencia() == null || existente.getReferencia().isBlank()) {
+			existente.setReferencia(generarReferencia());
+		}
 
-        Producto existente = repo.findByIdAndEmpresa(id, empresa)
-                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado para empresa " + empresa));
+		return repo.save(existente);
+	}
 
-        String referencia = producto.getReferencia().trim();
+	@Override
+	@Transactional
+	public Producto ajustarStock(Long id, AjusteStockRequest request, String empresa) {
+		validarEmpresa(empresa);
 
-        repo.findByReferencia(referencia).ifPresent(productoConMismaReferencia -> {
-            if (!productoConMismaReferencia.getId().equals(id)) {
-                throw new IllegalArgumentException("Ya existe otro producto con esa referencia");
-            }
-        });
+		Producto producto = repo.findByIdAndEmpresa(id, empresa)
+				.orElseThrow(() -> new IllegalArgumentException("Producto no encontrado para empresa " + empresa));
 
-        existente.setFechaAlta(producto.getFechaAlta() != null ? producto.getFechaAlta() : existente.getFechaAlta());
-        existente.setProveedor(producto.getProveedor());
-        existente.setUnidades(producto.getUnidades() != null ? producto.getUnidades() : 0);
-        existente.setReferencia(referencia);
-        existente.setMarca(producto.getMarca().trim());
-        existente.setModelo(producto.getModelo().trim());
-        existente.setFamilia(producto.getFamilia().trim());
-        existente.setSubfamilia(producto.getSubfamilia().trim());
-        existente.setDescripcion(producto.getDescripcion().trim());
-        existente.setEmpresa(empresa);
+		if (request == null || request.getDelta() == null) {
+			throw new IllegalArgumentException("Falta 'delta'");
+		}
 
-        // No modificamos la gama si ya existe
-        if (existente.getGama() == null || existente.getGama().isBlank()) {
-            existente.setGama(generarGama());
-        }
+		int delta = request.getDelta();
 
-        return repo.save(existente);
-    }
+		if (delta == 0) {
+			throw new IllegalArgumentException("'delta' no puede ser 0");
+		}
 
-    @Override
-    @Transactional
-    public Producto ajustarStock(Long id, AjusteStockRequest request, String empresa) {
-        validarEmpresa(empresa);
+		int unidadesAnteriores = producto.getUnidades() != null ? producto.getUnidades() : 0;
+		int unidadesNuevas = unidadesAnteriores + delta;
 
-        Producto producto = repo.findByIdAndEmpresa(id, empresa)
-                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado para empresa " + empresa));
+		if (unidadesNuevas < 0) {
+			throw new IllegalArgumentException("Las unidades no pueden quedar en negativo");
+		}
 
-        if (request == null || request.getDelta() == null) {
-            throw new IllegalArgumentException("Falta 'delta'");
-        }
+		producto.setUnidades(unidadesNuevas);
+		Producto productoGuardado = repo.save(producto);
 
-        int delta = request.getDelta();
+		ProductoMovimiento movimiento = new ProductoMovimiento();
+		movimiento.setEmpresa(empresa);
+		movimiento.setProducto(productoGuardado);
+		movimiento.setTipo(delta > 0 ? "ENTRADA" : "SALIDA");
+		movimiento.setCantidad(Math.abs(delta));
+		movimiento.setUnidadesAnteriores(unidadesAnteriores);
+		movimiento.setUnidadesNuevas(unidadesNuevas);
+		movimiento.setMotivo(
+				request.getMotivo() != null && !request.getMotivo().isBlank() ? request.getMotivo().trim() : null);
+		movimiento.setFecha(LocalDateTime.now());
 
-        if (delta == 0) {
-            throw new IllegalArgumentException("'delta' no puede ser 0");
-        }
+		movimientoRepo.save(movimiento);
 
-        int unidadesAnteriores = producto.getUnidades() != null ? producto.getUnidades() : 0;
-        int unidadesNuevas = unidadesAnteriores + delta;
+		return productoGuardado;
+	}
 
-        if (unidadesNuevas < 0) {
-            throw new IllegalArgumentException("Las unidades no pueden quedar en negativo");
-        }
+	@Override
+	@Transactional(readOnly = true)
+	public List<ProductoMovimiento> listarMovimientosPorProducto(Long productoId, String empresa) {
+		validarEmpresa(empresa);
 
-        producto.setUnidades(unidadesNuevas);
-        Producto productoGuardado = repo.save(producto);
+		repo.findByIdAndEmpresa(productoId, empresa)
+				.orElseThrow(() -> new IllegalArgumentException("Producto no encontrado para empresa " + empresa));
 
-        ProductoMovimiento movimiento = new ProductoMovimiento();
-        movimiento.setEmpresa(empresa);
-        movimiento.setProducto(productoGuardado);
-        movimiento.setTipo(delta > 0 ? "ENTRADA" : "SALIDA");
-        movimiento.setCantidad(Math.abs(delta));
+		return movimientoRepo.findByEmpresaAndProductoIdOrderByFechaDesc(empresa, productoId);
+	}
 
-        // Mantengo estos nombres porque tu entidad ProductoMovimiento aún usa stockAnterior/stockNuevo
-        movimiento.setUnidadesAnteriores(unidadesAnteriores);
-        movimiento.setUnidadesNuevas(unidadesNuevas);
+	@Override
+	@Transactional(readOnly = true)
+	public List<ProductoMovimiento> listarTodosLosMovimientos(String empresa) {
+		validarEmpresa(empresa);
+		return movimientoRepo.findByEmpresaOrderByFechaDesc(empresa);
+	}
 
-        movimiento.setMotivo(
-                request.getMotivo() != null && !request.getMotivo().isBlank()
-                ? request.getMotivo().trim()
-                : null
-        );
-        movimiento.setFecha(LocalDateTime.now());
+	private void validarEmpresa(String empresa) {
+		if (empresa == null || empresa.isBlank()) {
+			throw new IllegalArgumentException("Empresa no definida");
+		}
+	}
 
-        movimientoRepo.save(movimiento);
+	private void validarProducto(Producto producto) {
+		if (producto == null) {
+			throw new IllegalArgumentException("Producto no válido");
+		}
 
-        return productoGuardado;
-    }
+		if (producto.getGama() == null || producto.getGama().isBlank()) {
+			throw new IllegalArgumentException("La gama es obligatoria");
+		}
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<ProductoMovimiento> listarMovimientosPorProducto(Long productoId, String empresa) {
-        validarEmpresa(empresa);
+		if (producto.getMarca() == null || producto.getMarca().isBlank()) {
+			throw new IllegalArgumentException("La marca es obligatoria");
+		}
 
-        repo.findByIdAndEmpresa(productoId, empresa)
-                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado para empresa " + empresa));
+		if (producto.getModelo() == null || producto.getModelo().isBlank()) {
+			throw new IllegalArgumentException("El modelo es obligatorio");
+		}
 
-        return movimientoRepo.findByEmpresaAndProductoIdOrderByFechaDesc(empresa, productoId);
-    }
+		if (producto.getFamilia() == null || producto.getFamilia().isBlank()) {
+			throw new IllegalArgumentException("La familia es obligatoria");
+		}
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<ProductoMovimiento> listarTodosLosMovimientos(String empresa) {
-        validarEmpresa(empresa);
-        return movimientoRepo.findByEmpresaOrderByFechaDesc(empresa);
-    }
+		if (producto.getSubfamilia() == null || producto.getSubfamilia().isBlank()) {
+			throw new IllegalArgumentException("La subfamilia es obligatoria");
+		}
 
-    private void validarEmpresa(String empresa) {
-        if (empresa == null || empresa.isBlank()) {
-            throw new IllegalArgumentException("Empresa no definida");
-        }
-    }
+		if (producto.getDescripcion() == null || producto.getDescripcion().isBlank()) {
+			throw new IllegalArgumentException("La descripción es obligatoria");
+		}
 
-    private void validarProducto(Producto producto) {
-        if (producto == null) {
-            throw new IllegalArgumentException("Producto no válido");
-        }
+		if (producto.getUnidades() != null && producto.getUnidades() < 0) {
+			throw new IllegalArgumentException("Las unidades no pueden ser negativas");
+		}
 
-        if (producto.getReferencia() == null || producto.getReferencia().isBlank()) {
-            throw new IllegalArgumentException("La referencia es obligatoria");
-        }
+		if (producto.getPrecioSinIva() != null && producto.getPrecioSinIva() < 0) {
+			throw new IllegalArgumentException("El precio no puede ser negativo");
+		}
+	}
 
-        if (producto.getMarca() == null || producto.getMarca().isBlank()) {
-            throw new IllegalArgumentException("La marca es obligatoria");
-        }
+	private String generarReferencia() {
+		long numero = repo.count() + 1;
+		String referencia = String.format("REF-%06d", numero);
 
-        if (producto.getModelo() == null || producto.getModelo().isBlank()) {
-            throw new IllegalArgumentException("El modelo es obligatorio");
-        }
+		while (repo.findByReferencia(referencia).isPresent()) {
+			numero++;
+			referencia = String.format("REF-%06d", numero);
+		}
 
-        if (producto.getFamilia() == null || producto.getFamilia().isBlank()) {
-            throw new IllegalArgumentException("La familia es obligatoria");
-        }
-
-        if (producto.getSubfamilia() == null || producto.getSubfamilia().isBlank()) {
-            throw new IllegalArgumentException("La subfamilia es obligatoria");
-        }
-
-        if (producto.getDescripcion() == null || producto.getDescripcion().isBlank()) {
-            throw new IllegalArgumentException("La descripción es obligatoria");
-        }
-
-        if (producto.getUnidades() != null && producto.getUnidades() < 0) {
-            throw new IllegalArgumentException("Las unidades no pueden ser negativas");
-        }
-    }
-
-    private String generarGama() {
-        long siguienteNumero = repo.count() + 1;
-        return String.format("REF-%06d", siguienteNumero);
-    }
+		return referencia;
+	}
 }

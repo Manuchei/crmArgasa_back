@@ -14,8 +14,6 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
 
 	Optional<Producto> findByReferencia(String referencia);
 
-	Optional<Producto> findByGama(String gama);
-
 	List<Producto> findByEmpresa(String empresa);
 
 	List<Producto> findByEmpresaAndDescripcionContainingIgnoreCase(String empresa, String descripcion);
