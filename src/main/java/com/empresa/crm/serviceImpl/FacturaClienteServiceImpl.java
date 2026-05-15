@@ -101,6 +101,7 @@ public class FacturaClienteServiceImpl implements FacturaClienteService {
         FacturaCliente factura = new FacturaCliente();
         factura.setCliente(cliente);
         factura.setEmpresa(tenant);
+        factura.setNumero(generarNumeroFacturaCliente(tenant));
         factura.setFechaEmision(LocalDate.now());
         factura.setPagada(false);
         factura.setTotalImporte(total);
@@ -147,5 +148,30 @@ public class FacturaClienteServiceImpl implements FacturaClienteService {
     public List<FacturaCliente> findByCliente(Long clienteId) {
         String empresa = TenantContext.get();
         return facturaRepo.findByClienteIdAndEmpresa(clienteId, empresa);
+    }
+    
+    private String generarNumeroFacturaCliente(String empresa) {
+        LocalDate hoy = LocalDate.now();
+
+        int mes = hoy.getMonthValue();
+        int anio = hoy.getYear();
+
+        FacturaCliente ultima = facturaRepo.findTopByEmpresaOrderByIdDesc(empresa).orElse(null);
+
+        int siguiente = 1;
+
+        if (ultima != null && ultima.getNumero() != null && !ultima.getNumero().isBlank()) {
+            String[] partes = ultima.getNumero().split("-");
+
+            if (partes.length >= 2) {
+                try {
+                    siguiente = Integer.parseInt(partes[1]) + 1;
+                } catch (NumberFormatException e) {
+                    siguiente = 1;
+                }
+            }
+        }
+
+        return String.format("FC-%d-%02d-%d", siguiente, mes, anio);
     }
 }

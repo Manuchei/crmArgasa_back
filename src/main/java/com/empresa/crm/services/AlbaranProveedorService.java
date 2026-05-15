@@ -257,17 +257,38 @@ public class AlbaranProveedorService {
 	}
 
 	private String generarNumeroInterno(String empresa) {
-		AlbaranProveedor ultimo = albaranRepo.findTopByEmpresaOrderByIdDesc(empresa);
+	    LocalDate hoy = LocalDate.now();
 
-		int siguiente = 1;
+	    int mes = hoy.getMonthValue();
+	    int anio = hoy.getYear();
 
-		if (ultimo != null && ultimo.getNumeroInterno() != null && !ultimo.getNumeroInterno().isBlank()) {
-			siguiente = extraerSecuencia(ultimo.getNumeroInterno()) + 1;
-		}
+	    AlbaranProveedor ultimo = albaranRepo.findTopByEmpresaOrderByIdDesc(empresa);
 
-		String prefijo = normalizarPrefijoEmpresa(empresa);
+	    int siguiente = 1;
 
-		return prefijo + "-" + String.format("%05d", siguiente);
+	    if (ultimo != null && ultimo.getNumeroInterno() != null && !ultimo.getNumeroInterno().isBlank()) {
+	        siguiente = extraerSecuenciaNuevoFormato(ultimo.getNumeroInterno()) + 1;
+	    }
+
+	    return String.format("AV-%d-%02d-%d", siguiente, mes, anio);
+	}
+
+	private int extraerSecuenciaNuevoFormato(String numero) {
+	    if (numero == null || numero.isBlank()) {
+	        return 0;
+	    }
+
+	    String[] partes = numero.split("-");
+
+	    if (partes.length < 2) {
+	        return 0;
+	    }
+
+	    try {
+	        return Integer.parseInt(partes[1]);
+	    } catch (NumberFormatException e) {
+	        return 0;
+	    }
 	}
 
 	private int extraerSecuencia(String numeroInterno) {

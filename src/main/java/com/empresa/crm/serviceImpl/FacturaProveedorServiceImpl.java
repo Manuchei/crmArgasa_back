@@ -269,34 +269,32 @@ public class FacturaProveedorServiceImpl implements FacturaProveedorService {
 	}
 
 	private String generarNumeroInterno(String empresa) {
-		int anio = LocalDate.now().getYear();
-		String prefijoEmpresa = normalizarEmpresa(empresa);
+	    LocalDate hoy = LocalDate.now();
 
-		Optional<FacturaProveedor> ultimaFacturaOpt = facturaRepo.findTopByEmpresaOrderByIdDesc(empresa);
+	    int mes = hoy.getMonthValue();
+	    int anio = hoy.getYear();
 
-		int siguienteNumero = 1;
+	    Optional<FacturaProveedor> ultimaFacturaOpt = facturaRepo.findTopByEmpresaOrderByIdDesc(empresa);
 
-		if (ultimaFacturaOpt.isPresent()) {
-			String ultimoNumeroInterno = ultimaFacturaOpt.get().getNumeroInterno();
+	    int siguienteNumero = 1;
 
-			if (ultimoNumeroInterno != null && !ultimoNumeroInterno.isBlank()) {
-				String[] partes = ultimoNumeroInterno.split("-");
-				if (partes.length == 4) {
-					try {
-						int ultimoCorrelativo = Integer.parseInt(partes[3]);
-						int ultimoAnio = Integer.parseInt(partes[2]);
+	    if (ultimaFacturaOpt.isPresent()) {
+	        String ultimoNumeroInterno = ultimaFacturaOpt.get().getNumeroInterno();
 
-						if (ultimoAnio == anio) {
-							siguienteNumero = ultimoCorrelativo + 1;
-						}
-					} catch (NumberFormatException e) {
-						siguienteNumero = 1;
-					}
-				}
-			}
-		}
+	        if (ultimoNumeroInterno != null && !ultimoNumeroInterno.isBlank()) {
+	            String[] partes = ultimoNumeroInterno.split("-");
 
-		return String.format("FP-%s-%d-%04d", prefijoEmpresa, anio, siguienteNumero);
+	            if (partes.length >= 2) {
+	                try {
+	                    siguienteNumero = Integer.parseInt(partes[1]) + 1;
+	                } catch (NumberFormatException e) {
+	                    siguienteNumero = 1;
+	                }
+	            }
+	        }
+	    }
+
+	    return String.format("FV-%d-%02d-%d", siguienteNumero, mes, anio);
 	}
 
 	private String normalizarEmpresa(String empresa) {

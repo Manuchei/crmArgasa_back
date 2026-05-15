@@ -1,5 +1,6 @@
 package com.empresa.crm.services;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -113,6 +114,7 @@ public class AlbaranClienteService {
             }
         }
 
+        a.setNumero(generarNumeroAlbaranCliente(a.getEmpresa()));
         a.recalcularTotales();
         return albaranRepo.save(a);
     }
@@ -201,5 +203,30 @@ public class AlbaranClienteService {
         a.recalcularTotales();
 
         return albaranRepo.save(a);
+    }
+    
+    private String generarNumeroAlbaranCliente(String empresa) {
+        LocalDate hoy = LocalDate.now();
+
+        int mes = hoy.getMonthValue();
+        int anio = hoy.getYear();
+
+        AlbaranCliente ultimo = albaranRepo.findTopByEmpresaOrderByIdDesc(empresa).orElse(null);
+
+        int siguiente = 1;
+
+        if (ultimo != null && ultimo.getNumero() != null && !ultimo.getNumero().isBlank()) {
+            String[] partes = ultimo.getNumero().split("-");
+
+            if (partes.length >= 2) {
+                try {
+                    siguiente = Integer.parseInt(partes[1]) + 1;
+                } catch (NumberFormatException e) {
+                    siguiente = 1;
+                }
+            }
+        }
+
+        return String.format("AC-%d-%02d-%d", siguiente, mes, anio);
     }
 }

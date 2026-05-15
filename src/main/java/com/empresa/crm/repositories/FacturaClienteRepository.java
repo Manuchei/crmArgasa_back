@@ -18,5 +18,7 @@ public interface FacturaClienteRepository extends JpaRepository<FacturaCliente, 
 
 	Optional<FacturaCliente> findByIdAndEmpresa(Long id, String empresa);
 	List<FacturaCliente> findByClienteIdAndEmpresa(Long clienteId, String empresa);
+	
+	Optional<FacturaCliente> findTopByEmpresaOrderByIdDesc(String empresa);
 
 }

@@ -23,6 +23,7 @@ public class FacturaCliente {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    private String numero;
     private String empresa; // Argasa o Luga
     private LocalDate fechaEmision;
     private Double totalImporte;

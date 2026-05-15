@@ -165,6 +165,19 @@ public class ClienteProductoController {
 		t.setEmpresa(empresa);
 		t.setDescripcion(p.getDescripcion());
 
+		// ✅ PRECIO DEL PRODUCTO
+		double precioUnitario = p.getPrecioSinIva() != null ? p.getPrecioSinIva() : 0.0;
+		double descuento = t.getDescuento() != null ? t.getDescuento() : 0.0;
+
+		if (descuento < 0) descuento = 0.0;
+		if (descuento > 100) descuento = 100.0;
+
+		double bruto = precioUnitario * cantidad;
+		double neto = bruto * (1 - descuento / 100.0);
+
+		t.setPrecioUnitario(precioUnitario);
+		t.setImporte(neto);
+
 		ClienteProductoAsignarDTO dto = new ClienteProductoAsignarDTO();
 		dto.setClienteId(clienteId);
 		dto.setProductoId(productoId);
