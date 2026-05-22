@@ -478,4 +478,25 @@ public class FacturacionV2Service {
 			throw new RuntimeException("Error generando hash", e);
 		}
 	}
+
+	@Transactional
+	public FacturaV2Response marcarComoPagada(Long facturaId) {
+
+		String empresa = TenantContext.get();
+		if (empresa == null || empresa.isBlank()) {
+			throw new RuntimeException("Empresa no seleccionada");
+		}
+
+		FacturaV2 factura = facturaRepo.findByIdAndEmpresa(facturaId, empresa)
+				.orElseThrow(() -> new RuntimeException("Factura no existe"));
+
+		if (!"EMITIDA".equalsIgnoreCase(factura.getEstado())) {
+			throw new RuntimeException("Solo se puede marcar como pagada una factura EMITIDA");
+		}
+
+		factura.setEstado("PAGADA");
+
+		FacturaV2 guardada = facturaRepo.save(factura);
+		return mapResponse(guardada);
+	}
 }

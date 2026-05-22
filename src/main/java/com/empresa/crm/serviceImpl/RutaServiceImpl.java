@@ -304,6 +304,8 @@ public class RutaServiceImpl implements RutaService {
 			r.setFecha(fechaRuta);
 			r.setNombreTransportista(request.getNombreTransportista());
 			r.setEmailTransportista(request.getEmailTransportista());
+			r.setAcompanante1(request.getAcompanante1());
+			r.setAcompanante2(request.getAcompanante2());
 
 			String estadoFinal = (item.getEstado() != null && !item.getEstado().isBlank()) ? item.getEstado().trim()
 					: estadoGlobal;

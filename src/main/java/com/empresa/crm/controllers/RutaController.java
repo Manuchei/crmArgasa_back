@@ -96,6 +96,9 @@ public class RutaController {
         ruta.setTransportista(transportista);
         ruta.setNombreTransportista(transportista.getNombre());
         ruta.setEmailTransportista(transportista.getEmail());
+        
+        ruta.setAcompanante1(dto.getAcompanante1());
+        ruta.setAcompanante2(dto.getAcompanante2());
 
         ruta.setFecha(dto.getFecha());
         ruta.setEstado(dto.getEstado());
@@ -210,6 +213,9 @@ public class RutaController {
         ruta.setObservaciones(dto.getObservaciones());
 
         ruta.setEmpresa(empresa);
+        
+        ruta.setAcompanante1(dto.getAcompanante1());
+        ruta.setAcompanante2(dto.getAcompanante2());
 
         return rutaService.save(ruta);
     }

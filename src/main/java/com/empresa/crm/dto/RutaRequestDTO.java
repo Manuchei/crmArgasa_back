@@ -14,6 +14,9 @@ public class RutaRequestDTO {
 
 	private String nombreTransportista;
 	private String emailTransportista;
+	
+	private String acompanante1;
+	private String acompanante2;
 
 	private LocalDate fecha;
 	private String estado;

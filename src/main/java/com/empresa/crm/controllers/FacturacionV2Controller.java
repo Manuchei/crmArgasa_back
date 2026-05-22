@@ -72,4 +72,9 @@ public class FacturacionV2Controller {
 	public ResponseEntity<FacturaV2Response> getFacturaById(@PathVariable Long id) {
 		return ResponseEntity.ok(facturacionV2Service.getFacturaById(id));
 	}
+
+	@PostMapping("/facturas/{id:\\d+}/marcar-pagada")
+	public FacturaV2Response marcarComoPagada(@PathVariable Long id) {
+		return facturacionV2Service.marcarComoPagada(id);
+	}
 }

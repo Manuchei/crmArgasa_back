@@ -29,4 +29,6 @@ public interface LlamadaRepository extends JpaRepository<Llamada, Long> {
 	Page<Llamada> findByEmpresaAndEstadoAndFechaAfterOrderByFechaAsc(String empresa, String estado, LocalDateTime fecha,
 			Pageable pageable);
 
+	List<Llamada> findByEmpresaAndEstadoAndFechaBefore(String empresa, String estado, LocalDateTime fecha);
+
 }

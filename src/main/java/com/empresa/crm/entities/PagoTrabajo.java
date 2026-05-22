@@ -15,7 +15,7 @@ public class PagoTrabajo {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
-	
+
 	@Column(name = "empresa", nullable = false, length = 20)
 	private String empresa;
 
@@ -36,6 +36,10 @@ public class PagoTrabajo {
 	@Column(nullable = false)
 	private Double importe = 0.0;
 
-	private String metodo; // efectivo, transferencia, etc.
-	private String observaciones; // opcional
+	private String metodo;
+
+	@Column(name = "numero_talonario", length = 100)
+	private String numeroTalonario;
+
+	private String observaciones;
 }

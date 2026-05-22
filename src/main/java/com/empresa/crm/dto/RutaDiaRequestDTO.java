@@ -10,6 +10,9 @@ public class RutaDiaRequestDTO {
     private Long transportistaId; // ✅ nuevo
     private String nombreTransportista;
     private String emailTransportista;
+    
+    private String acompanante1;
+    private String acompanante2;
     private String estado;
     private List<RutaDiaItemDTO> rutas;
 

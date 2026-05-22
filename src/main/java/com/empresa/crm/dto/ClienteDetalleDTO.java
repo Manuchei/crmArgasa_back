@@ -28,4 +28,6 @@ public class ClienteDetalleDTO {
 	private Double totalPagado;
 
 	private String numeroCuenta;
+	
+	private String iban;
 }

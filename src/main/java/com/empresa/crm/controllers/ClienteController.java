@@ -88,6 +88,8 @@ public class ClienteController {
 
 		dto.setNumeroCuenta(cliente.getNumeroCuenta());
 
+		dto.setIban(cliente.getIban());
+
 		return dto;
 	}
 

@@ -51,6 +51,7 @@ public class PagoClienteService {
 		p.setFecha(req.getFecha() != null ? req.getFecha() : LocalDate.now());
 		p.setImporte(importe);
 		p.setMetodo(metodo);
+		p.setNumeroTalonario(nullIfBlank(req.getNumeroTalonario()));
 		p.setObservaciones(nullIfBlank(req.getObservaciones()));
 
 		return pagoRepo.save(p);
@@ -67,6 +68,7 @@ public class PagoClienteService {
 		dto.setFecha(p.getFecha());
 		dto.setImporte(safe(p.getImporte()));
 		dto.setMetodo(nullIfBlank(p.getMetodo()));
+		dto.setNumeroTalonario(nullIfBlank(p.getNumeroTalonario()));
 		dto.setObservaciones(nullIfBlank(p.getObservaciones()));
 
 		if (c != null) {

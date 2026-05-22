@@ -12,6 +12,7 @@ public class PagoClienteComprobanteDTO {
 	private LocalDate fecha;
 	private Double importe;
 	private String metodo;
+	private String numeroTalonario;
 	private String observaciones;
 
 	private Long clienteId;

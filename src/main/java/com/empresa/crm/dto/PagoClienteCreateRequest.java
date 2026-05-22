@@ -9,5 +9,6 @@ public class PagoClienteCreateRequest {
 	private LocalDate fecha;
 	private Double importe;
 	private String metodo;
+	private String numeroTalonario;
 	private String observaciones;
 }

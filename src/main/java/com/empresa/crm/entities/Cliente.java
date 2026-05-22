@@ -46,9 +46,11 @@ public class Cliente {
 	private Double totalImporte = 0.0;
 	private Double totalPagado = 0.0;
 
-	@NotBlank(message = "El número de cuenta es obligatorio")
-	@Pattern(regexp = "^ES\\d{22}$", message = "El IBAN debe tener formato ES + 22 dígitos")
+	@Pattern(regexp = "^\\d{20}$", message = "El número de cuenta debe tener 20 dígitos")
 	private String numeroCuenta;
+
+	@Column(length = 34)
+	private String iban;
 
 	@Transient
 	public Double getSaldo() {

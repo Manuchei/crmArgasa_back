@@ -13,6 +13,7 @@ import com.empresa.crm.repositories.ProveedorRepository;
 import com.empresa.crm.repositories.TrabajoRepository;
 import com.empresa.crm.services.ProveedorService;
 import com.empresa.crm.tenant.TenantContext;
+import com.empresa.crm.utils.IbanUtils;
 
 import jakarta.transaction.Transactional;
 
@@ -131,6 +132,24 @@ public class ProveedorServiceImpl implements ProveedorService {
 		proveedor.setPais(trim(proveedorDto.getPais()));
 		proveedor.setContacto(trim(proveedorDto.getContacto()));
 		proveedor.setDatosBancarios(trim(proveedorDto.getDatosBancarios()));
+		String numeroCuenta = trim(proveedorDto.getNumeroCuenta());
+
+		if (numeroCuenta != null && !numeroCuenta.isBlank()) {
+
+		    numeroCuenta = numeroCuenta.replaceAll("\\s+", "");
+
+		    if (!numeroCuenta.matches("^\\d{20}$")) {
+		        throw new RuntimeException("El número de cuenta debe tener 20 dígitos.");
+		    }
+
+		    proveedor.setNumeroCuenta(numeroCuenta);
+		    proveedor.setIban(IbanUtils.generarIbanEspanol(numeroCuenta));
+
+		} else {
+
+		    proveedor.setNumeroCuenta(null);
+		    proveedor.setIban(null);
+		}
 		proveedor.setNotas(trim(proveedorDto.getNotas()));
 
 		Proveedor guardado = proveedorRepository.save(proveedor);

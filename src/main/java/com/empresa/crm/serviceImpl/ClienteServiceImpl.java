@@ -9,6 +9,7 @@ import com.empresa.crm.entities.Cliente;
 import com.empresa.crm.repositories.ClienteRepository;
 import com.empresa.crm.services.ClienteService;
 import com.empresa.crm.tenant.TenantContext;
+import com.empresa.crm.utils.IbanUtils;
 
 @Service
 public class ClienteServiceImpl implements ClienteService {
@@ -50,17 +51,19 @@ public class ClienteServiceImpl implements ClienteService {
 
 		cliente.setEmpresa(empresa);
 
-		if (cliente.getNumeroCuenta() == null || cliente.getNumeroCuenta().isBlank()) {
-			throw new RuntimeException("El número de cuenta es obligatorio.");
+		if (cliente.getNumeroCuenta() != null && !cliente.getNumeroCuenta().isBlank()) {
+			String numeroCuentaLimpio = cliente.getNumeroCuenta().replaceAll("\\s+", "").trim();
+
+			if (!numeroCuentaLimpio.matches("^\\d{20}$")) {
+				throw new RuntimeException("El número de cuenta debe tener 20 dígitos.");
+			}
+
+			cliente.setNumeroCuenta(numeroCuentaLimpio);
+			cliente.setIban(IbanUtils.generarIbanEspanol(numeroCuentaLimpio));
+		} else {
+			cliente.setNumeroCuenta(null);
+			cliente.setIban(null);
 		}
-
-		String numeroCuentaLimpio = cliente.getNumeroCuenta().replaceAll("\\s+", "").toUpperCase().trim();
-
-		if (!numeroCuentaLimpio.matches("^ES\\d{22}$")) {
-			throw new RuntimeException("El IBAN debe tener formato ES + 22 dígitos.");
-		}
-
-		cliente.setNumeroCuenta(numeroCuentaLimpio);
 
 		// Normalización básica de direcciones
 		cliente.setDireccion(trimOrNull(cliente.getDireccion()));

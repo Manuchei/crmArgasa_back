@@ -137,7 +137,7 @@ public class AlbaranProveedorService {
 				l.setCodigo(prod.getReferencia());
 				l.setDescripcion(descripcion);
 				l.setUnidades((double) Math.max(prod.getUnidades() != null ? prod.getUnidades() : 0, 0));
-				l.setPrecio(0.0);
+				l.setPrecio(safe(prod.getPrecioSinIva()));
 				l.setDtoPct(0.0);
 				l.recalcular();
 
@@ -257,38 +257,38 @@ public class AlbaranProveedorService {
 	}
 
 	private String generarNumeroInterno(String empresa) {
-	    LocalDate hoy = LocalDate.now();
+		LocalDate hoy = LocalDate.now();
 
-	    int mes = hoy.getMonthValue();
-	    int anio = hoy.getYear();
+		int mes = hoy.getMonthValue();
+		int anio = hoy.getYear();
 
-	    AlbaranProveedor ultimo = albaranRepo.findTopByEmpresaOrderByIdDesc(empresa);
+		AlbaranProveedor ultimo = albaranRepo.findTopByEmpresaOrderByIdDesc(empresa);
 
-	    int siguiente = 1;
+		int siguiente = 1;
 
-	    if (ultimo != null && ultimo.getNumeroInterno() != null && !ultimo.getNumeroInterno().isBlank()) {
-	        siguiente = extraerSecuenciaNuevoFormato(ultimo.getNumeroInterno()) + 1;
-	    }
+		if (ultimo != null && ultimo.getNumeroInterno() != null && !ultimo.getNumeroInterno().isBlank()) {
+			siguiente = extraerSecuenciaNuevoFormato(ultimo.getNumeroInterno()) + 1;
+		}
 
-	    return String.format("AV-%d-%02d-%d", siguiente, mes, anio);
+		return String.format("AV-%d-%02d-%d", siguiente, mes, anio);
 	}
 
 	private int extraerSecuenciaNuevoFormato(String numero) {
-	    if (numero == null || numero.isBlank()) {
-	        return 0;
-	    }
+		if (numero == null || numero.isBlank()) {
+			return 0;
+		}
 
-	    String[] partes = numero.split("-");
+		String[] partes = numero.split("-");
 
-	    if (partes.length < 2) {
-	        return 0;
-	    }
+		if (partes.length < 2) {
+			return 0;
+		}
 
-	    try {
-	        return Integer.parseInt(partes[1]);
-	    } catch (NumberFormatException e) {
-	        return 0;
-	    }
+		try {
+			return Integer.parseInt(partes[1]);
+		} catch (NumberFormatException e) {
+			return 0;
+		}
 	}
 
 	private int extraerSecuencia(String numeroInterno) {

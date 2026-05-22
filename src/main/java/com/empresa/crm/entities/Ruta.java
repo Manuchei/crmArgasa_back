@@ -32,6 +32,9 @@ public class Ruta {
 
 	private String emailTransportista;
 
+	private String acompanante1;
+	private String acompanante2;
+
 	// ✅ ya no es necesario pedirlos desde el front, pero los mantenemos por
 	// compatibilidad
 	private String origen;

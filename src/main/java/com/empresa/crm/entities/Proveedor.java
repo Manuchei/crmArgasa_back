@@ -51,6 +51,12 @@ public class Proveedor {
 	@Column(name = "datos_bancarios", columnDefinition = "TEXT")
 	private String datosBancarios;
 
+	@Column(name = "numero_cuenta", length = 20)
+	private String numeroCuenta;
+
+	@Column(length = 34)
+	private String iban;
+
 	@Column(columnDefinition = "TEXT")
 	private String notas;
 

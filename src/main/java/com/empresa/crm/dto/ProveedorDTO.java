@@ -29,5 +29,7 @@ public class ProveedorDTO {
 	private String pais;
 	private String contacto;
 	private String datosBancarios;
+	private String numeroCuenta;
+	private String iban;
 	private String notas;
 }
