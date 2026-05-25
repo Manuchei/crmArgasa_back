@@ -14,4 +14,7 @@ public interface VisitaRepository extends JpaRepository<Visita, Long> {
 	List<Visita> findByEmpresaAndFechaBetween(String empresa, LocalDateTime inicio, LocalDateTime fin);
 
 	List<Visita> findByEmpresaAndEstadoAndFechaBefore(String empresa, String estado, LocalDateTime fecha);
+
+	List<Visita> findByEmpresaAndEstadoInAndFechaLessThanEqualOrderByFechaAsc(String empresa, List<String> estados,
+			LocalDateTime fecha);
 }

@@ -51,8 +51,6 @@ public class TareaController {
 		try {
 			TenantContext.set(e);
 
-			service.pasarPendientesVencidasAHoy(e);
-
 			LocalDate dia = LocalDate.parse(fecha);
 			return service.findByFechaAndEmpresa(dia, e);
 

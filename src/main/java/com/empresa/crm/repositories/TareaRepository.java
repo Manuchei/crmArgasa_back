@@ -14,4 +14,7 @@ public interface TareaRepository extends JpaRepository<Tarea, Long> {
 	List<Tarea> findByEmpresaAndFechaBetween(String empresa, LocalDateTime inicio, LocalDateTime fin);
 
 	List<Tarea> findByEmpresaAndEstadoAndFechaBefore(String empresa, String estado, LocalDateTime fecha);
+
+	List<Tarea> findByEmpresaAndEstadoInAndFechaLessThanEqualOrderByFechaAsc(String empresa, List<String> estados,
+			LocalDateTime fecha);
 }

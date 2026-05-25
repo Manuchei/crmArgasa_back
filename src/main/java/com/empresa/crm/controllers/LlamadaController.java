@@ -58,8 +58,6 @@ public class LlamadaController {
 		try {
 			TenantContext.set(e);
 
-			serviceImpl.pasarPendientesVencidasAHoy(e);
-
 			LocalDate dia = LocalDate.parse(fecha);
 			return serviceImpl.findByFechaAndEmpresa(dia, e);
 

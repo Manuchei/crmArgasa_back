@@ -82,10 +82,10 @@ public class LlamadaServiceImpl implements LlamadaService {
 	public List<Llamada> findByFechaAndEmpresa(LocalDate dia, String empresa) {
 		validarEmpresa(empresa);
 
-		LocalDateTime inicio = dia.atStartOfDay();
 		LocalDateTime fin = dia.plusDays(1).atStartOfDay().minusNanos(1);
 
-		return repo.findByEmpresaAndFechaBetween(empresa.trim().toUpperCase(), inicio, fin);
+		return repo.findByEmpresaAndEstadoInAndFechaLessThanEqualOrderByFechaAsc(empresa.trim().toUpperCase(),
+				List.of("pendiente", "en_progreso"), fin);
 	}
 
 	// ==========================

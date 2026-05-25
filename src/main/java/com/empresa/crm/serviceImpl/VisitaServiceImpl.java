@@ -41,10 +41,10 @@ public class VisitaServiceImpl implements VisitaService {
 	public List<Visita> findByFechaAndEmpresa(LocalDate fecha, String empresa) {
 		validarEmpresa(empresa);
 
-		LocalDateTime inicio = fecha.atStartOfDay();
 		LocalDateTime fin = fecha.plusDays(1).atStartOfDay().minusNanos(1);
 
-		return repo.findByEmpresaAndFechaBetween(empresa.trim().toUpperCase(), inicio, fin);
+		return repo.findByEmpresaAndEstadoInAndFechaLessThanEqualOrderByFechaAsc(empresa.trim().toUpperCase(),
+				List.of("pendiente", "en_progreso"), fin);
 	}
 
 	@Override

@@ -31,4 +31,7 @@ public interface LlamadaRepository extends JpaRepository<Llamada, Long> {
 
 	List<Llamada> findByEmpresaAndEstadoAndFechaBefore(String empresa, String estado, LocalDateTime fecha);
 
+	List<Llamada> findByEmpresaAndEstadoInAndFechaLessThanEqualOrderByFechaAsc(String empresa, List<String> estados,
+			LocalDateTime fecha);
+
 }
