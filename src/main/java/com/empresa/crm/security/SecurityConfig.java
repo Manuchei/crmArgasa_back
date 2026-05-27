@@ -30,9 +30,15 @@ public class SecurityConfig {
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
-		http.csrf(csrf -> csrf.disable()).cors(cors -> cors.configurationSource(corsConfigurationSource()))
+		http.csrf(csrf -> csrf.disable())
+
+				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
 				.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-				.authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+				.authorizeHttpRequests(auth -> auth
+
+						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
 						.requestMatchers("/api/auth/**").permitAll()
 
@@ -40,7 +46,12 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.POST, "/api/push/subscribe").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/push/unsubscribe").permitAll()
 
-						.requestMatchers("/api/**").authenticated().anyRequest().permitAll())
+						.requestMatchers("/api/inventarios/**").hasAnyRole("ADMIN", "USER")
+
+						.requestMatchers("/api/**").authenticated()
+
+						.anyRequest().permitAll())
+
 				.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();
@@ -51,16 +62,13 @@ public class SecurityConfig {
 		return request -> {
 			CorsConfiguration configuration = new CorsConfiguration();
 
-			configuration.setAllowedOrigins(List.of("http://localhost:4200", "https://crm.bydominguez.com"));
+			configuration.setAllowedOriginPatterns(List.of("http://localhost:4200"));
 
-			configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+			configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
 
-			configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Empresa"));
-
-			configuration.setExposedHeaders(List.of("Authorization", "X-Empresa"));
-
+			configuration.setAllowedHeaders(List.of("*"));
 			configuration.setAllowCredentials(true);
-			configuration.setMaxAge(3600L);
+			configuration.setExposedHeaders(List.of("Authorization"));
 
 			return configuration;
 		};
