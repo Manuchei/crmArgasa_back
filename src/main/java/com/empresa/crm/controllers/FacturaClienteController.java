@@ -1,5 +1,6 @@
 package com.empresa.crm.controllers;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
@@ -55,6 +56,16 @@ public class FacturaClienteController {
     public FacturaCliente pagar(@PathVariable Long facturaId) {
         // ✅ Ideal: el service valida empresa por TenantContext
         return facturaService.marcarComoPagada(facturaId);
+    }
+    
+    @GetMapping("/informe")
+    public List<FacturaCliente> informe(
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) Long clienteId,
+            @RequestParam(required = false) LocalDate desde,
+            @RequestParam(required = false) LocalDate hasta
+    ) {
+        return facturaService.buscarInforme(estado, clienteId, desde, hasta);
     }
 
     // ❌ Eliminado: ya no tiene sentido pasar empresa por URL

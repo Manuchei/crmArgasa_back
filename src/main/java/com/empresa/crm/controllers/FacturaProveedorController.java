@@ -1,5 +1,6 @@
 package com.empresa.crm.controllers;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -94,5 +95,15 @@ public class FacturaProveedorController {
 	@org.springframework.web.bind.annotation.DeleteMapping("/{facturaId}")
 	public void eliminarBorrador(@PathVariable Long facturaId) {
 		facturaService.eliminarBorrador(facturaId);
+	}
+	
+	@GetMapping("/informe")
+	public List<FacturaProveedor> informe(
+	        @RequestParam(required = false) String estado,
+	        @RequestParam(required = false) Long proveedorId,
+	        @RequestParam(required = false) LocalDate desde,
+	        @RequestParam(required = false) LocalDate hasta
+	) {
+	    return facturaService.buscarInforme(estado, proveedorId, desde, hasta);
 	}
 }

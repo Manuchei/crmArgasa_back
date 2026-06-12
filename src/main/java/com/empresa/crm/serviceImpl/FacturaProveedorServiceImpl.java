@@ -269,32 +269,32 @@ public class FacturaProveedorServiceImpl implements FacturaProveedorService {
 	}
 
 	private String generarNumeroInterno(String empresa) {
-	    LocalDate hoy = LocalDate.now();
+		LocalDate hoy = LocalDate.now();
 
-	    int mes = hoy.getMonthValue();
-	    int anio = hoy.getYear();
+		int mes = hoy.getMonthValue();
+		int anio = hoy.getYear();
 
-	    Optional<FacturaProveedor> ultimaFacturaOpt = facturaRepo.findTopByEmpresaOrderByIdDesc(empresa);
+		Optional<FacturaProveedor> ultimaFacturaOpt = facturaRepo.findTopByEmpresaOrderByIdDesc(empresa);
 
-	    int siguienteNumero = 1;
+		int siguienteNumero = 1;
 
-	    if (ultimaFacturaOpt.isPresent()) {
-	        String ultimoNumeroInterno = ultimaFacturaOpt.get().getNumeroInterno();
+		if (ultimaFacturaOpt.isPresent()) {
+			String ultimoNumeroInterno = ultimaFacturaOpt.get().getNumeroInterno();
 
-	        if (ultimoNumeroInterno != null && !ultimoNumeroInterno.isBlank()) {
-	            String[] partes = ultimoNumeroInterno.split("-");
+			if (ultimoNumeroInterno != null && !ultimoNumeroInterno.isBlank()) {
+				String[] partes = ultimoNumeroInterno.split("-");
 
-	            if (partes.length >= 2) {
-	                try {
-	                    siguienteNumero = Integer.parseInt(partes[1]) + 1;
-	                } catch (NumberFormatException e) {
-	                    siguienteNumero = 1;
-	                }
-	            }
-	        }
-	    }
+				if (partes.length >= 2) {
+					try {
+						siguienteNumero = Integer.parseInt(partes[1]) + 1;
+					} catch (NumberFormatException e) {
+						siguienteNumero = 1;
+					}
+				}
+			}
+		}
 
-	    return String.format("FV-%d-%02d-%d", siguienteNumero, mes, anio);
+		return String.format("FV-%d-%02d-%d", siguienteNumero, mes, anio);
 	}
 
 	private String normalizarEmpresa(String empresa) {
@@ -328,5 +328,28 @@ public class FacturaProveedorServiceImpl implements FacturaProveedorService {
 		}
 
 		facturaRepo.delete(factura);
+	}
+
+	@Override
+	public List<FacturaProveedor> buscarInforme(String estado, Long proveedorId, LocalDate desde, LocalDate hasta) {
+		String empresa = TenantContext.get();
+
+		String estadoFactura = null;
+		Boolean pagada = null;
+
+		if (estado != null && !estado.isBlank()) {
+			if ("PENDIENTE".equalsIgnoreCase(estado)) {
+				pagada = false;
+			} else {
+				estadoFactura = estado.toUpperCase();
+			}
+		}
+
+		List<FacturaProveedor> facturas = facturaRepo.buscarInforme(empresa, estadoFactura, pagada, proveedorId, desde,
+				hasta);
+
+		inicializarLineas(facturas);
+
+		return facturas;
 	}
 }

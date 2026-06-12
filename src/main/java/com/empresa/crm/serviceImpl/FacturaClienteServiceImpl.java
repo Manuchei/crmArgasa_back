@@ -21,157 +21,170 @@ import com.empresa.crm.tenant.TenantContext;
 @Service
 public class FacturaClienteServiceImpl implements FacturaClienteService {
 
-    private final FacturaClienteRepository facturaRepo;
-    private final ClienteRepository clienteRepo;
-    private final ServicioClienteRepository servicioRepo;
+	private final FacturaClienteRepository facturaRepo;
+	private final ClienteRepository clienteRepo;
+	private final ServicioClienteRepository servicioRepo;
 
-    public FacturaClienteServiceImpl(FacturaClienteRepository facturaRepo,
-                                     ClienteRepository clienteRepo,
-                                     ServicioClienteRepository servicioRepo) {
-        this.facturaRepo = facturaRepo;
-        this.clienteRepo = clienteRepo;
-        this.servicioRepo = servicioRepo;
-    }
+	public FacturaClienteServiceImpl(FacturaClienteRepository facturaRepo, ClienteRepository clienteRepo,
+			ServicioClienteRepository servicioRepo) {
+		this.facturaRepo = facturaRepo;
+		this.clienteRepo = clienteRepo;
+		this.servicioRepo = servicioRepo;
+	}
 
-    @Override
-    public List<FacturaCliente> findAll() {
-        String empresa = TenantContext.get();
-        return facturaRepo.findByEmpresa(empresa);
-    }
+	@Override
+	public List<FacturaCliente> findAll() {
+		String empresa = TenantContext.get();
+		return facturaRepo.findByEmpresa(empresa);
+	}
 
-    @Override
-    public FacturaCliente findById(Long id) {
-        String empresa = TenantContext.get();
-        return facturaRepo.findByIdAndEmpresa(id, empresa).orElse(null);
-    }
+	@Override
+	public FacturaCliente findById(Long id) {
+		String empresa = TenantContext.get();
+		return facturaRepo.findByIdAndEmpresa(id, empresa).orElse(null);
+	}
 
-    @Override
-    public FacturaCliente generarFactura(Long clienteId, String empresa) {
+	@Override
+	public FacturaCliente generarFactura(Long clienteId, String empresa) {
 
-        // ✅ Tenant definitivo (viene validado desde el interceptor)
-        final String tenant = (empresa == null) ? null : empresa.trim().toUpperCase();
-        if (tenant == null || tenant.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Empresa no seleccionada.");
-        }
+		// ✅ Tenant definitivo (viene validado desde el interceptor)
+		final String tenant = (empresa == null) ? null : empresa.trim().toUpperCase();
+		if (tenant == null || tenant.isBlank()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Empresa no seleccionada.");
+		}
 
-        // ✅ Cliente SOLO de esta empresa
-        Cliente cliente = clienteRepo.findByIdAndEmpresa(clienteId, tenant).orElse(null);
-        if (cliente == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "El cliente no existe en la empresa " + tenant + "."
-            );
-        }
+		// ✅ Cliente SOLO de esta empresa
+		Cliente cliente = clienteRepo.findByIdAndEmpresa(clienteId, tenant).orElse(null);
+		if (cliente == null) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+					"El cliente no existe en la empresa " + tenant + ".");
+		}
 
-        // ✅ Servicios por empresa (correctos)
-        List<ServicioCliente> porEmpresa = servicioRepo.findByClienteIdAndEmpresa(clienteId, tenant);
+		// ✅ Servicios por empresa (correctos)
+		List<ServicioCliente> porEmpresa = servicioRepo.findByClienteIdAndEmpresa(clienteId, tenant);
 
-        // ✅ Fallback: servicios antiguos con empresa NULL (para no “perder” trabajos viejos)
-        List<ServicioCliente> sinEmpresa = servicioRepo.findByClienteIdAndEmpresaIsNull(clienteId);
+		// ✅ Fallback: servicios antiguos con empresa NULL (para no “perder” trabajos
+		// viejos)
+		List<ServicioCliente> sinEmpresa = servicioRepo.findByClienteIdAndEmpresaIsNull(clienteId);
 
-        // ✅ Mezclar SIN duplicar (por id) manteniendo orden
-        Map<Long, ServicioCliente> mapa = new LinkedHashMap<>();
-        for (ServicioCliente s : porEmpresa) {
-            if (s != null && s.getId() != null) mapa.put(s.getId(), s);
-        }
-        for (ServicioCliente s : sinEmpresa) {
-            if (s != null && s.getId() != null) mapa.putIfAbsent(s.getId(), s);
-        }
+		// ✅ Mezclar SIN duplicar (por id) manteniendo orden
+		Map<Long, ServicioCliente> mapa = new LinkedHashMap<>();
+		for (ServicioCliente s : porEmpresa) {
+			if (s != null && s.getId() != null)
+				mapa.put(s.getId(), s);
+		}
+		for (ServicioCliente s : sinEmpresa) {
+			if (s != null && s.getId() != null)
+				mapa.putIfAbsent(s.getId(), s);
+		}
 
-        List<ServicioCliente> servicios = mapa.values().stream().toList();
+		List<ServicioCliente> servicios = mapa.values().stream().toList();
 
-        // ✅ Solo los que NO tienen factura
-        List<ServicioCliente> serviciosSinFactura = servicios.stream()
-                .filter(s -> s.getFactura() == null)
-                .toList();
+		// ✅ Solo los que NO tienen factura
+		List<ServicioCliente> serviciosSinFactura = servicios.stream().filter(s -> s.getFactura() == null).toList();
 
-        if (serviciosSinFactura.isEmpty()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "No hay servicios sin factura para este cliente."
-            );
-        }
+		if (serviciosSinFactura.isEmpty()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+					"No hay servicios sin factura para este cliente.");
+		}
 
-        // ✅ Total
-        double total = serviciosSinFactura.stream()
-                .mapToDouble(s -> s.getImporte() != null ? s.getImporte() : 0.0)
-                .sum();
+		// ✅ Total
+		double total = serviciosSinFactura.stream().mapToDouble(s -> s.getImporte() != null ? s.getImporte() : 0.0)
+				.sum();
 
-        // ✅ Crear factura
-        FacturaCliente factura = new FacturaCliente();
-        factura.setCliente(cliente);
-        factura.setEmpresa(tenant);
-        factura.setNumero(generarNumeroFacturaCliente(tenant));
-        factura.setFechaEmision(LocalDate.now());
-        factura.setPagada(false);
-        factura.setTotalImporte(total);
+		// ✅ Crear factura
+		FacturaCliente factura = new FacturaCliente();
+		factura.setCliente(cliente);
+		factura.setEmpresa(tenant);
+		factura.setNumero(generarNumeroFacturaCliente(tenant));
+		factura.setFechaEmision(LocalDate.now());
+		factura.setPagada(false);
+		factura.setTotalImporte(total);
 
-        factura = facturaRepo.save(factura);
+		factura = facturaRepo.save(factura);
 
-        // ✅ Vincular servicios y blindar empresa
-        for (ServicioCliente s : serviciosSinFactura) {
-            s.setEmpresa(tenant);
-            s.setFactura(factura);
-            servicioRepo.save(s);
-        }
+		// ✅ Vincular servicios y blindar empresa
+		for (ServicioCliente s : serviciosSinFactura) {
+			s.setEmpresa(tenant);
+			s.setFactura(factura);
+			servicioRepo.save(s);
+		}
 
-        return factura;
-    }
+		return factura;
+	}
 
-    @Override
-    public FacturaCliente marcarComoPagada(Long facturaId) {
-        String empresa = TenantContext.get();
+	@Override
+	public FacturaCliente marcarComoPagada(Long facturaId) {
+		String empresa = TenantContext.get();
 
-        FacturaCliente factura = facturaRepo.findByIdAndEmpresa(facturaId, empresa).orElse(null);
-        if (factura == null) return null;
+		FacturaCliente factura = facturaRepo.findByIdAndEmpresa(facturaId, empresa).orElse(null);
+		if (factura == null)
+			return null;
 
-        factura.setPagada(true);
-        facturaRepo.save(factura);
+		factura.setPagada(true);
+		facturaRepo.save(factura);
 
-        if (factura.getServicios() != null) {
-            for (ServicioCliente s : factura.getServicios()) {
-                s.setPagado(true);
-                s.setEmpresa(empresa);
-                servicioRepo.save(s);
-            }
-        }
+		if (factura.getServicios() != null) {
+			for (ServicioCliente s : factura.getServicios()) {
+				s.setPagado(true);
+				s.setEmpresa(empresa);
+				servicioRepo.save(s);
+			}
+		}
 
-        return factura;
-    }
+		return factura;
+	}
 
-    @Override
-    public List<FacturaCliente> findByEmpresa(String empresa) {
-        return facturaRepo.findByEmpresa(TenantContext.get());
-    }
+	@Override
+	public List<FacturaCliente> findByEmpresa(String empresa) {
+		return facturaRepo.findByEmpresa(TenantContext.get());
+	}
 
-    @Override
-    public List<FacturaCliente> findByCliente(Long clienteId) {
-        String empresa = TenantContext.get();
-        return facturaRepo.findByClienteIdAndEmpresa(clienteId, empresa);
-    }
-    
-    private String generarNumeroFacturaCliente(String empresa) {
-        LocalDate hoy = LocalDate.now();
+	@Override
+	public List<FacturaCliente> findByCliente(Long clienteId) {
+		String empresa = TenantContext.get();
+		return facturaRepo.findByClienteIdAndEmpresa(clienteId, empresa);
+	}
 
-        int mes = hoy.getMonthValue();
-        int anio = hoy.getYear();
+	private String generarNumeroFacturaCliente(String empresa) {
+		LocalDate hoy = LocalDate.now();
 
-        FacturaCliente ultima = facturaRepo.findTopByEmpresaOrderByIdDesc(empresa).orElse(null);
+		int mes = hoy.getMonthValue();
+		int anio = hoy.getYear();
 
-        int siguiente = 1;
+		FacturaCliente ultima = facturaRepo.findTopByEmpresaOrderByIdDesc(empresa).orElse(null);
 
-        if (ultima != null && ultima.getNumero() != null && !ultima.getNumero().isBlank()) {
-            String[] partes = ultima.getNumero().split("-");
+		int siguiente = 1;
 
-            if (partes.length >= 2) {
-                try {
-                    siguiente = Integer.parseInt(partes[1]) + 1;
-                } catch (NumberFormatException e) {
-                    siguiente = 1;
-                }
-            }
-        }
+		if (ultima != null && ultima.getNumero() != null && !ultima.getNumero().isBlank()) {
+			String[] partes = ultima.getNumero().split("-");
 
-        return String.format("FC-%d-%02d-%d", siguiente, mes, anio);
-    }
+			if (partes.length >= 2) {
+				try {
+					siguiente = Integer.parseInt(partes[1]) + 1;
+				} catch (NumberFormatException e) {
+					siguiente = 1;
+				}
+			}
+		}
+
+		return String.format("FC-%d-%02d-%d", siguiente, mes, anio);
+	}
+
+	@Override
+	public List<FacturaCliente> buscarInforme(String estado, Long clienteId, LocalDate desde, LocalDate hasta) {
+		String empresa = TenantContext.get();
+
+		Boolean pagada = null;
+
+		if (estado != null && !estado.isBlank()) {
+			if ("PAGADA".equalsIgnoreCase(estado)) {
+				pagada = true;
+			} else if ("PENDIENTE".equalsIgnoreCase(estado)) {
+				pagada = false;
+			}
+		}
+
+		return facturaRepo.buscarInforme(empresa, pagada, clienteId, desde, hasta);
+	}
 }

@@ -1,5 +1,6 @@
 package com.empresa.crm.services;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import com.empresa.crm.entities.FacturaProveedor;
@@ -27,4 +28,6 @@ public interface FacturaProveedorService {
 	List<FacturaProveedor> findByProveedor(Long proveedorId);
 
 	void eliminarBorrador(Long facturaId);
+	
+	List<FacturaProveedor> buscarInforme(String estado, Long proveedorId, LocalDate desde, LocalDate hasta);
 }
