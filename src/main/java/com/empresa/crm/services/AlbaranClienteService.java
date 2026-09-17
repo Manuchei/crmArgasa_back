@@ -242,4 +242,92 @@ public class AlbaranClienteService {
 
 		return String.format("AC-%d-%02d-%d", siguiente, mes, anio);
 	}
+
+	@Transactional
+	public AlbaranCliente crearDesdeTrabajo(Long trabajoId) {
+
+		Trabajo t = trabajoRepo.findById(trabajoId).orElseThrow(() -> new RuntimeException("Trabajo no encontrado"));
+
+		if (t.getCliente() == null) {
+			throw new RuntimeException("El trabajo no tiene ningún cliente asociado");
+		}
+
+		Cliente c = t.getCliente();
+
+		AlbaranCliente a = new AlbaranCliente();
+
+		a.setCliente(c);
+		a.setFechaEmision(LocalDate.now());
+		a.setLineas(new ArrayList<>());
+		a.setEmpresa(c.getEmpresa());
+
+		// ===== SNAPSHOT CLIENTE =====
+		a.setNombreApellidos(c.getNombreApellidos());
+		a.setDireccion(c.getDireccion());
+		a.setCodigoPostal(c.getCodigoPostal());
+		a.setPoblacion(c.getPoblacion());
+		a.setProvincia(c.getProvincia());
+		a.setTelefono(c.getTelefono());
+		a.setMovil(c.getMovil());
+		a.setCifDni(c.getCifDni());
+		a.setEmail(c.getEmail());
+
+		// ===== CREAR LÍNEA ÚNICAMENTE DESDE ESTE TRABAJO =====
+
+		String desc = t.getDescripcion() != null ? t.getDescripcion().trim() : "";
+
+		if (desc.isBlank()) {
+			throw new RuntimeException("El trabajo no tiene una descripción válida");
+		}
+
+		int unidades = safeInt(t.getUnidades(), 1);
+		double precioUnitario = safe(t.getPrecioUnitario());
+		double dtoPct = safe(t.getDescuento());
+
+		// Compatibilidad con trabajos antiguos
+		if (precioUnitario <= 0) {
+
+			double importeLegacy = safe(t.getImporte());
+
+			if (importeLegacy <= 0) {
+				throw new RuntimeException("El trabajo no tiene un precio válido");
+			}
+
+			precioUnitario = importeLegacy / Math.max(1, unidades);
+		}
+
+		// Normalizar descuento
+		if (dtoPct < 0) {
+			dtoPct = 0;
+		}
+
+		if (dtoPct > 100) {
+			dtoPct = 100;
+		}
+
+		LineaAlbaranCliente linea = new LineaAlbaranCliente();
+
+		linea.setEmpresa(a.getEmpresa());
+		linea.setCodigo(null);
+		linea.setDescripcion(desc);
+
+		linea.setUnidades((double) unidades);
+		linea.setPrecio(precioUnitario);
+		linea.setDtoPct(dtoPct);
+
+		linea.setAlbaran(a);
+		linea.recalcular();
+
+		a.getLineas().add(linea);
+
+		// ===== FINALIZAR ALBARÁN =====
+
+		a.setNumero(generarNumeroAlbaranCliente(a.getEmpresa()));
+
+		a.recalcularTotales();
+
+		return albaranRepo.save(a);
+	}
+	
+	
 }
