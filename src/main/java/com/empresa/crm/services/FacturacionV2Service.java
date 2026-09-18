@@ -37,15 +37,17 @@ public class FacturacionV2Service {
 	private final LineaAlbaranClienteRepository lineaRepo;
 	private final FacturaV2Repository facturaRepo;
 	private final ContadorFacturaV2Repository contadorRepo;
+	private final AlbaranClienteService albaranClienteService;
 
 	public FacturacionV2Service(ClienteRepository clienteRepo, ServicioClienteRepository servicioRepo,
 			LineaAlbaranClienteRepository lineaRepo, FacturaV2Repository facturaRepo,
-			ContadorFacturaV2Repository contadorRepo) {
+			ContadorFacturaV2Repository contadorRepo, AlbaranClienteService albaranClienteService) {
 		this.clienteRepo = clienteRepo;
 		this.servicioRepo = servicioRepo;
 		this.lineaRepo = lineaRepo;
 		this.facturaRepo = facturaRepo;
 		this.contadorRepo = contadorRepo;
+		this.albaranClienteService = albaranClienteService;
 	}
 
 	@Transactional(readOnly = true)
@@ -498,5 +500,63 @@ public class FacturacionV2Service {
 
 		FacturaV2 guardada = facturaRepo.save(factura);
 		return mapResponse(guardada);
+	}
+
+	@Transactional
+	public FacturaV2Response crearBorradorDesdeTrabajo(Long trabajoId) {
+
+		if (trabajoId == null) {
+			throw new RuntimeException("Trabajo no válido");
+		}
+
+		/*
+		 * 1. Crear un albarán exclusivamente con el trabajo indicado.
+		 */
+		var albaran = albaranClienteService.crearDesdeTrabajo(trabajoId);
+
+		if (albaran == null || albaran.getId() == null) {
+			throw new RuntimeException("No se pudo crear el albarán del trabajo");
+		}
+
+		/*
+		 * 2. Confirmarlo.
+		 *
+		 * Facturación V2 solamente permite facturar líneas pertenecientes a albaranes
+		 * confirmados.
+		 */
+		albaran = albaranClienteService.confirmar(albaran.getId());
+
+		if (albaran.getCliente() == null || albaran.getCliente().getId() == null) {
+			throw new RuntimeException("El albarán no tiene un cliente válido");
+		}
+
+		if (albaran.getLineas() == null || albaran.getLineas().isEmpty()) {
+			throw new RuntimeException("El albarán creado no contiene líneas");
+		}
+
+		/*
+		 * crearDesdeTrabajo() crea exactamente una línea.
+		 */
+		LineaAlbaranCliente linea = albaran.getLineas().get(0);
+
+		if (linea == null || linea.getId() == null) {
+			throw new RuntimeException("No se pudo identificar la línea del albarán");
+		}
+
+		/*
+		 * 3. Crear la petición normal de Facturación V2.
+		 *
+		 * No usamos servicioId porque un Trabajo no es un ServicioCliente. Facturamos
+		 * la LineaAlbaranCliente recién creada.
+		 */
+		CrearFacturaV2Request req = new CrearFacturaV2Request(albaran.getCliente().getId(), "A", List.of(),
+				List.of(linea.getId()));
+
+		/*
+		 * 4. Reutilizamos toda la lógica que ya tiene Facturación V2: - validación de
+		 * empresa - validación de cliente - reserva de línea - numeración - IVA -
+		 * totales - estado BORRADOR
+		 */
+		return crearBorrador(req);
 	}
 }

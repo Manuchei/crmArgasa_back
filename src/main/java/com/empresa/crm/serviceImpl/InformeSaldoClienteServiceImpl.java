@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import com.empresa.crm.dto.HistorialSaldoMovimientoDTO;
 import com.empresa.crm.dto.HistorialSaldoResponseDTO;
 import com.empresa.crm.dto.HistorialTContableResponseDTO;
+import com.empresa.crm.dto.SaldoPendienteClienteDTO;
 import com.empresa.crm.dto.TContableLineaDTO;
 import com.empresa.crm.entities.Cliente;
 import com.empresa.crm.entities.PagoCliente;
@@ -217,5 +218,65 @@ public class InformeSaldoClienteServiceImpl implements InformeSaldoClienteServic
 
 	private double safe(Double value) {
 		return value != null ? value : 0.0;
+	}
+
+	@Override
+	public List<SaldoPendienteClienteDTO> obtenerSaldosPendientes(String empresa) {
+
+		if (empresa == null || empresa.isBlank()) {
+			throw new RuntimeException("La empresa es obligatoria");
+		}
+
+		List<SaldoPendienteClienteDTO> resultado = new ArrayList<>();
+
+		List<Cliente> clientes = clienteRepository.findAll();
+
+		for (Cliente cliente : clientes) {
+
+			// Solo clientes de la empresa seleccionada
+			if (cliente.getEmpresa() == null || !cliente.getEmpresa().equalsIgnoreCase(empresa)) {
+				continue;
+			}
+
+			Long clienteId = cliente.getId();
+
+			// Todo el histórico, sin filtros de fecha
+			List<Trabajo> trabajos = trabajoRepository.findByClienteIdOrderByFechaAscIdAsc(clienteId);
+
+			List<PagoCliente> pagos = pagoClienteRepository.findByClienteIdOrderByFechaAscIdAsc(clienteId);
+
+			// Total de trabajos
+			double totalTrabajos = trabajos.stream().mapToDouble(t -> safe(t.getImporte())).sum();
+
+			// Total de pagos
+			double totalPagos = pagos.stream().mapToDouble(p -> safe(p.getImporte())).sum();
+
+			// Saldo actual
+			double saldoPendiente = totalTrabajos - totalPagos;
+
+			// Solo queremos clientes que DEBEN dinero
+			if (saldoPendiente <= 0) {
+				continue;
+			}
+
+			// Fecha del último pago realizado
+			LocalDate fechaUltimoPago = pagos.stream().map(PagoCliente::getFecha).filter(fecha -> fecha != null)
+					.max(LocalDate::compareTo).orElse(null);
+
+			// Teléfono. Si no tiene, usamos el móvil
+			String telefono = cliente.getTelefono();
+
+			if (telefono == null || telefono.isBlank()) {
+				telefono = cliente.getMovil();
+			}
+
+			resultado.add(new SaldoPendienteClienteDTO(cliente.getId(), cliente.getNombreApellidos(), telefono,
+					saldoPendiente, fechaUltimoPago));
+		}
+
+		// Mayor deuda primero
+		resultado.sort(Comparator.comparing(SaldoPendienteClienteDTO::getSaldoPendiente).reversed());
+
+		return resultado;
 	}
 }

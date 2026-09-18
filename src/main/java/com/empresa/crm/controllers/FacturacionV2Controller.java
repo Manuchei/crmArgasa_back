@@ -45,6 +45,12 @@ public class FacturacionV2Controller {
 		return facturacionV2Service.crearBorrador(req);
 	}
 
+	@PostMapping("/facturas/trabajos/{trabajoId}")
+	public FacturaV2Response crearFacturaDesdeTrabajo(@PathVariable Long trabajoId) {
+
+		return facturacionV2Service.crearBorradorDesdeTrabajo(trabajoId);
+	}
+
 	@PutMapping("/facturas/{id:\\d+}")
 	public ResponseEntity<FacturaV2Response> actualizarFactura(@PathVariable Long id,
 			@RequestBody ActualizarFacturaV2Request req) {

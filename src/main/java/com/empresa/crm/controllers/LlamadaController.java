@@ -112,7 +112,10 @@ public class LlamadaController {
 		LocalDateTime fecha = LocalDateTime.parse(dto.getFecha(), f);
 
 		Llamada llamada = new Llamada();
-		llamada.setEmpresa(dto.getEmpresa().trim().toUpperCase()); // ✅ AQUÍ
+		llamada.setEmpresa(dto.getEmpresa().trim().toUpperCase());
+
+		llamada.setNombre(dto.getNombre());
+		llamada.setDireccion(dto.getDireccion());
 		llamada.setMotivo(dto.getMotivo());
 		llamada.setFecha(fecha);
 		llamada.setEstado(dto.getEstado());
@@ -138,11 +141,12 @@ public class LlamadaController {
 		DateTimeFormatter f = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
 		LocalDateTime fecha = LocalDateTime.parse(dto.getFecha(), f);
 
+		llamada.setNombre(dto.getNombre());
+		llamada.setDireccion(dto.getDireccion());
 		llamada.setMotivo(dto.getMotivo());
 		llamada.setFecha(fecha);
 		llamada.setEstado(dto.getEstado());
 		llamada.setObservaciones(dto.getObservaciones());
-
 		// ✅ conservar empresa real
 		llamada.setEmpresa(empDto);
 
@@ -175,5 +179,20 @@ public class LlamadaController {
 		if (dto.getEstado() == null || dto.getEstado().trim().isEmpty()) {
 			dto.setEstado("pendiente");
 		}
+	}
+
+	@GetMapping(value = "/realizadas", produces = MediaType.APPLICATION_JSON_VALUE)
+	public List<Llamada> buscarRealizadas(@RequestParam String empresa, @RequestParam(required = false) String nombre,
+			@RequestParam(required = false) String direccion, @RequestParam(required = false) String fecha) {
+
+		validarEmpresa(empresa);
+
+		LocalDate fechaFiltro = null;
+
+		if (fecha != null && !fecha.isBlank()) {
+			fechaFiltro = LocalDate.parse(fecha);
+		}
+
+		return serviceImpl.buscarRealizadas(empresa, nombre, direccion, fechaFiltro);
 	}
 }

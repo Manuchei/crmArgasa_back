@@ -30,4 +30,7 @@ public interface FacturaProveedorService {
 	void eliminarBorrador(Long facturaId);
 	
 	List<FacturaProveedor> buscarInforme(String estado, Long proveedorId, LocalDate desde, LocalDate hasta);
+	
+	// Informe de saldos pendientes de proveedores
+		List<FacturaProveedor> findSaldosPendientes();
 }

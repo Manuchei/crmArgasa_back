@@ -159,4 +159,25 @@ public class LlamadaServiceImpl implements LlamadaService {
 		repo.saveAll(vencidas);
 	}
 
+	public List<Llamada> buscarRealizadas(String empresa, String nombre, String direccion, LocalDate fecha) {
+
+		validarEmpresa(empresa);
+
+		String emp = empresa.trim().toUpperCase();
+
+		String nombreFiltro = nombre == null || nombre.isBlank() ? null : nombre.trim();
+
+		String direccionFiltro = direccion == null || direccion.isBlank() ? null : direccion.trim();
+
+		LocalDateTime inicio = null;
+		LocalDateTime fin = null;
+
+		if (fecha != null) {
+			inicio = fecha.atStartOfDay();
+			fin = fecha.plusDays(1).atStartOfDay().minusNanos(1);
+		}
+
+		return repo.buscarRealizadas(emp, nombreFiltro, direccionFiltro, inicio, fin);
+	}
+
 }

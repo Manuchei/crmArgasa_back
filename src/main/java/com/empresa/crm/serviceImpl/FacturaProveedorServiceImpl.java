@@ -352,4 +352,11 @@ public class FacturaProveedorServiceImpl implements FacturaProveedorService {
 
 		return facturas;
 	}
+
+	@Override
+	public List<FacturaProveedor> findSaldosPendientes() {
+		String empresa = TenantContext.get();
+
+		return facturaRepo.findSaldosPendientes(empresa);
+	}
 }

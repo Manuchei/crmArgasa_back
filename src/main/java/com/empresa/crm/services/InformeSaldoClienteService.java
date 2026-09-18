@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.empresa.crm.dto.HistorialSaldoResponseDTO;
 import com.empresa.crm.dto.HistorialTContableResponseDTO;
+import com.empresa.crm.dto.SaldoPendienteClienteDTO;
 
 public interface InformeSaldoClienteService {
 
@@ -14,5 +15,7 @@ public interface InformeSaldoClienteService {
 
 	List<HistorialSaldoResponseDTO> obtenerHistorialSaldoFiltrado(Long clienteId, LocalDate fechaInicio,
 			LocalDate fechaFin, String empresa);
+
+	List<SaldoPendienteClienteDTO> obtenerSaldosPendientes(String empresa);
 
 }

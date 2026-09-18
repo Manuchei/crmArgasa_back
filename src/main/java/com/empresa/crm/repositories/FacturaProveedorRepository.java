@@ -33,6 +33,16 @@ public interface FacturaProveedorRepository extends JpaRepository<FacturaProveed
 	@Query("""
 			SELECT f FROM FacturaProveedor f
 			WHERE f.empresa = :empresa
+			AND f.estado = 'EMITIDA'
+			ORDER BY
+			    CASE WHEN f.fechaVencimiento IS NULL THEN 1 ELSE 0 END,
+			    f.fechaVencimiento ASC
+			""")
+	List<FacturaProveedor> findSaldosPendientes(@Param("empresa") String empresa);
+
+	@Query("""
+			SELECT f FROM FacturaProveedor f
+			WHERE f.empresa = :empresa
 			AND (:estado IS NULL OR f.estado = :estado)
 			AND (:pagada IS NULL OR f.pagada = :pagada)
 			AND (:proveedorId IS NULL OR f.proveedor.id = :proveedorId)

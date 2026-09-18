@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.empresa.crm.dto.HistorialSaldoResponseDTO;
 import com.empresa.crm.dto.HistorialTContableResponseDTO;
 import com.empresa.crm.services.InformeSaldoClienteService;
+import com.empresa.crm.dto.SaldoPendienteClienteDTO;
 
 @RestController
 @RequestMapping("/api/informes/saldos")
@@ -40,5 +41,11 @@ public class InformeSaldoClienteController {
 			@RequestParam(required = false) LocalDate fechaInicio, @RequestParam(required = false) LocalDate fechaFin,
 			@RequestParam String empresa) {
 		return service.obtenerHistorialSaldoFiltrado(clienteId, fechaInicio, fechaFin, empresa);
+	}
+
+	@GetMapping("/pendientes")
+	public List<SaldoPendienteClienteDTO> obtenerSaldosPendientes(@RequestParam String empresa) {
+
+		return service.obtenerSaldosPendientes(empresa);
 	}
 }

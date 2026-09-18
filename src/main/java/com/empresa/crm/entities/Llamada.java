@@ -18,6 +18,10 @@ public class Llamada {
 
 	@Column(name = "empresa", nullable = false, length = 20)
 	private String empresa;
+	
+	private String nombre;
+	
+	private String direccion;
 
 	private String motivo;
 

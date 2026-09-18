@@ -96,14 +96,16 @@ public class FacturaProveedorController {
 	public void eliminarBorrador(@PathVariable Long facturaId) {
 		facturaService.eliminarBorrador(facturaId);
 	}
-	
+
 	@GetMapping("/informe")
-	public List<FacturaProveedor> informe(
-	        @RequestParam(required = false) String estado,
-	        @RequestParam(required = false) Long proveedorId,
-	        @RequestParam(required = false) LocalDate desde,
-	        @RequestParam(required = false) LocalDate hasta
-	) {
-	    return facturaService.buscarInforme(estado, proveedorId, desde, hasta);
+	public List<FacturaProveedor> informe(@RequestParam(required = false) String estado,
+			@RequestParam(required = false) Long proveedorId, @RequestParam(required = false) LocalDate desde,
+			@RequestParam(required = false) LocalDate hasta) {
+		return facturaService.buscarInforme(estado, proveedorId, desde, hasta);
+	}
+
+	@GetMapping("/informe/saldos-pendientes")
+	public List<FacturaProveedor> saldosPendientes() {
+		return facturaService.findSaldosPendientes();
 	}
 }
