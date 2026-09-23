@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import com.empresa.crm.entities.AlbaranProveedor;
 
@@ -18,4 +19,6 @@ public interface AlbaranProveedorRepository extends JpaRepository<AlbaranProveed
 	Optional<AlbaranProveedor> findByIdAndEmpresa(Long id, String empresa);
 
 	AlbaranProveedor findTopByEmpresaOrderByIdDesc(String empresa);
+
+	
 }

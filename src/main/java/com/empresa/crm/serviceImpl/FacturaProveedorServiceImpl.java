@@ -270,26 +270,21 @@ public class FacturaProveedorServiceImpl implements FacturaProveedorService {
 
 	private String generarNumeroInterno(String empresa) {
 		LocalDate hoy = LocalDate.now();
-
 		int mes = hoy.getMonthValue();
 		int anio = hoy.getYear();
 
-		Optional<FacturaProveedor> ultimaFacturaOpt = facturaRepo.findTopByEmpresaOrderByIdDesc(empresa);
-
+		// numero_interno es único entre todas las empresas.
 		int siguienteNumero = 1;
 
-		if (ultimaFacturaOpt.isPresent()) {
-			String ultimoNumeroInterno = ultimaFacturaOpt.get().getNumeroInterno();
+		for (String numeroInterno : facturaRepo.findAllNumerosInternos()) {
+			String[] partes = numeroInterno.split("-");
 
-			if (ultimoNumeroInterno != null && !ultimoNumeroInterno.isBlank()) {
-				String[] partes = ultimoNumeroInterno.split("-");
-
-				if (partes.length >= 2) {
-					try {
-						siguienteNumero = Integer.parseInt(partes[1]) + 1;
-					} catch (NumberFormatException e) {
-						siguienteNumero = 1;
-					}
+			if (partes.length == 4 && "FV".equals(partes[0])) {
+				try {
+					int correlativo = Integer.parseInt(partes[1]);
+					siguienteNumero = Math.max(siguienteNumero, correlativo + 1);
+				} catch (NumberFormatException e) {
+					// Ignorar números antiguos con otro formato.
 				}
 			}
 		}

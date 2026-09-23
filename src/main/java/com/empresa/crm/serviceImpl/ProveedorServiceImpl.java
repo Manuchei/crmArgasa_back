@@ -136,19 +136,19 @@ public class ProveedorServiceImpl implements ProveedorService {
 
 		if (numeroCuenta != null && !numeroCuenta.isBlank()) {
 
-		    numeroCuenta = numeroCuenta.replaceAll("\\s+", "");
+			numeroCuenta = numeroCuenta.replaceAll("\\s+", "");
 
-		    if (!numeroCuenta.matches("^\\d{20}$")) {
-		        throw new RuntimeException("El número de cuenta debe tener 20 dígitos.");
-		    }
+			if (!numeroCuenta.matches("^\\d{20}$")) {
+				throw new RuntimeException("El número de cuenta debe tener 20 dígitos.");
+			}
 
-		    proveedor.setNumeroCuenta(numeroCuenta);
-		    proveedor.setIban(IbanUtils.generarIbanEspanol(numeroCuenta));
+			proveedor.setNumeroCuenta(numeroCuenta);
+			proveedor.setIban(IbanUtils.generarIbanEspanol(numeroCuenta));
 
 		} else {
 
-		    proveedor.setNumeroCuenta(null);
-		    proveedor.setIban(null);
+			proveedor.setNumeroCuenta(null);
+			proveedor.setIban(null);
 		}
 		proveedor.setNotas(trim(proveedorDto.getNotas()));
 
@@ -218,7 +218,9 @@ public class ProveedorServiceImpl implements ProveedorService {
 		if (proveedor.getProductos() != null) {
 			for (Producto producto : proveedor.getProductos()) {
 				double unidades = producto.getUnidades() != null ? producto.getUnidades() : 0;
-				totalProductos += unidades;
+				double precio = producto.getPrecioSinIva() != null ? producto.getPrecioSinIva() : 0.0;
+
+				totalProductos += unidades * precio;
 			}
 		}
 

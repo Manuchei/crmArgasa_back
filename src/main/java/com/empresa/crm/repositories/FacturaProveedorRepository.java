@@ -53,4 +53,7 @@ public interface FacturaProveedorRepository extends JpaRepository<FacturaProveed
 	List<FacturaProveedor> buscarInforme(@Param("empresa") String empresa, @Param("estado") String estado,
 			@Param("pagada") Boolean pagada, @Param("proveedorId") Long proveedorId, @Param("desde") LocalDate desde,
 			@Param("hasta") LocalDate hasta);
+
+	@Query("SELECT f.numeroInterno FROM FacturaProveedor f WHERE f.numeroInterno IS NOT NULL")
+	List<String> findAllNumerosInternos();
 }
