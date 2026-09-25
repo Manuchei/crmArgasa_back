@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.empresa.crm.dto.TareaRequestDTO;
 import com.empresa.crm.entities.Tarea;
+import com.empresa.crm.repositories.TareaRepository;
 import com.empresa.crm.services.TareaService;
 import com.empresa.crm.tenant.TenantContext;
 
@@ -18,9 +19,11 @@ import com.empresa.crm.tenant.TenantContext;
 public class TareaController {
 
 	private final TareaService service;
+	private final TareaRepository repository;
 
-	public TareaController(TareaService service) {
+	public TareaController(TareaService service, TareaRepository repository) {
 		this.service = service;
+		this.repository = repository;
 	}
 
 	private static void validarEmpresa(String empresa) {
@@ -59,6 +62,27 @@ public class TareaController {
 		}
 	}
 
+	// Colócalo antes del endpoint "/{id}"
+	@GetMapping(value = "/realizadas", produces = MediaType.APPLICATION_JSON_VALUE)
+	public List<Tarea> buscarRealizadas(@RequestParam String empresa, @RequestParam(required = false) String nombre,
+			@RequestParam(required = false) String direccion, @RequestParam(required = false) String fecha) {
+
+		validarEmpresa(empresa);
+
+		LocalDateTime inicio = null;
+		LocalDateTime fin = null;
+
+		if (fecha != null && !fecha.isBlank()) {
+			LocalDate dia = LocalDate.parse(fecha);
+			inicio = dia.atStartOfDay();
+			fin = dia.plusDays(1).atStartOfDay();
+		}
+
+		return repository.buscarRealizadas(empresa.trim().toUpperCase(),
+				nombre == null || nombre.isBlank() ? null : nombre.trim(),
+				direccion == null || direccion.isBlank() ? null : direccion.trim(), inicio, fin);
+	}
+
 	@GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
 	public Tarea getById(@PathVariable Long id) {
 		return service.findById(id);
@@ -73,6 +97,8 @@ public class TareaController {
 		Tarea tarea = new Tarea();
 		tarea.setEmpresa(dto.getEmpresa().trim().toUpperCase());
 		tarea.setTitulo(dto.getTitulo());
+		tarea.setNombre(dto.getNombre());
+		tarea.setDireccion(dto.getDireccion());
 		tarea.setFecha(LocalDateTime.parse(dto.getFecha(), f));
 		tarea.setEstado(dto.getEstado());
 		tarea.setObservaciones(dto.getObservaciones());
@@ -99,6 +125,8 @@ public class TareaController {
 		DateTimeFormatter f = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
 
 		tarea.setTitulo(dto.getTitulo());
+		tarea.setNombre(dto.getNombre());
+		tarea.setDireccion(dto.getDireccion());
 		tarea.setFecha(LocalDateTime.parse(dto.getFecha(), f));
 		tarea.setEstado(dto.getEstado());
 		tarea.setObservaciones(dto.getObservaciones());
@@ -113,8 +141,9 @@ public class TareaController {
 
 		Tarea tarea = service.findById(id);
 
-		if (tarea == null)
+		if (tarea == null) {
 			return;
+		}
 
 		if (!tarea.getEmpresa().equalsIgnoreCase(empresa.trim().toUpperCase())) {
 			throw new RuntimeException("No autorizado para borrar esta tarea");

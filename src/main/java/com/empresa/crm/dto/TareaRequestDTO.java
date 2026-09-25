@@ -10,4 +10,6 @@ public class TareaRequestDTO {
 	private String fecha;
 	private String estado;
 	private String observaciones;
+	private String nombre;
+	private String direccion;
 }

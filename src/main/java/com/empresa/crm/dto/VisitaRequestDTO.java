@@ -11,4 +11,5 @@ public class VisitaRequestDTO {
 	private String estado;
 	private String observaciones;
 	private String direccion;
+	private String nombre;
 }

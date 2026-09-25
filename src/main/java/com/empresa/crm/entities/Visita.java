@@ -30,4 +30,9 @@ public class Visita {
 	private String estado = "pendiente";
 
 	private String observaciones;
+	@Column(length = 255)
+	private String nombre;
+
+	@Column(length = 500)
+	private String direccion;
 }

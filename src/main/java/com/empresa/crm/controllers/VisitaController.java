@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.empresa.crm.dto.VisitaRequestDTO;
 import com.empresa.crm.entities.Visita;
+import com.empresa.crm.repositories.VisitaRepository;
 import com.empresa.crm.services.VisitaService;
 import com.empresa.crm.tenant.TenantContext;
 
@@ -18,9 +19,11 @@ import com.empresa.crm.tenant.TenantContext;
 public class VisitaController {
 
 	private final VisitaService service;
+	private final VisitaRepository repository;
 
-	public VisitaController(VisitaService service) {
+	public VisitaController(VisitaService service, VisitaRepository repository) {
 		this.service = service;
+		this.repository = repository;
 	}
 
 	private static void validarEmpresa(String empresa) {
@@ -44,6 +47,7 @@ public class VisitaController {
 
 	@GetMapping(value = "/dia/{fecha}", produces = MediaType.APPLICATION_JSON_VALUE)
 	public List<Visita> getVisitasDia(@PathVariable String fecha, @RequestParam String empresa) {
+
 		validarEmpresa(empresa);
 
 		String e = empresa.trim().toUpperCase();
@@ -57,6 +61,26 @@ public class VisitaController {
 		} finally {
 			TenantContext.clear();
 		}
+	}
+
+	@GetMapping(value = "/realizadas", produces = MediaType.APPLICATION_JSON_VALUE)
+	public List<Visita> buscarRealizadas(@RequestParam String empresa, @RequestParam(required = false) String nombre,
+			@RequestParam(required = false) String direccion, @RequestParam(required = false) String fecha) {
+
+		validarEmpresa(empresa);
+
+		LocalDateTime inicio = null;
+		LocalDateTime fin = null;
+
+		if (fecha != null && !fecha.isBlank()) {
+			LocalDate dia = LocalDate.parse(fecha);
+			inicio = dia.atStartOfDay();
+			fin = dia.plusDays(1).atStartOfDay();
+		}
+
+		return repository.buscarRealizadas(empresa.trim().toUpperCase(),
+				nombre == null || nombre.isBlank() ? null : nombre.trim(),
+				direccion == null || direccion.isBlank() ? null : direccion.trim(), inicio, fin);
 	}
 
 	@GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -73,6 +97,8 @@ public class VisitaController {
 		Visita visita = new Visita();
 		visita.setEmpresa(dto.getEmpresa().trim().toUpperCase());
 		visita.setTitulo(dto.getTitulo());
+		visita.setNombre(dto.getNombre());
+		visita.setDireccion(dto.getDireccion());
 		visita.setFecha(LocalDateTime.parse(dto.getFecha(), f));
 		visita.setEstado(dto.getEstado());
 		visita.setObservaciones(dto.getObservaciones());
@@ -99,6 +125,8 @@ public class VisitaController {
 		DateTimeFormatter f = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
 
 		visita.setTitulo(dto.getTitulo());
+		visita.setNombre(dto.getNombre());
+		visita.setDireccion(dto.getDireccion());
 		visita.setFecha(LocalDateTime.parse(dto.getFecha(), f));
 		visita.setEstado(dto.getEstado());
 		visita.setObservaciones(dto.getObservaciones());
@@ -113,8 +141,9 @@ public class VisitaController {
 
 		Visita visita = service.findById(id);
 
-		if (visita == null)
+		if (visita == null) {
 			return;
+		}
 
 		if (!visita.getEmpresa().equalsIgnoreCase(empresa.trim().toUpperCase())) {
 			throw new RuntimeException("No autorizado para borrar esta visita");
