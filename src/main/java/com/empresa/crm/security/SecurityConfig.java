@@ -62,7 +62,7 @@ public class SecurityConfig {
 		return request -> {
 			CorsConfiguration configuration = new CorsConfiguration();
 
-			configuration.setAllowedOriginPatterns(List.of("http://localhost:4200"));
+			configuration.setAllowedOriginPatterns(List.of("http://localhost:4200", "https://novexapp.es"));
 
 			configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
 

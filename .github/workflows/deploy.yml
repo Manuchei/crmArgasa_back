@@ -2,19 +2,90 @@ name: Deploy Backend
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: novexapp-backend-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: novexapp_test
+          MYSQL_USER: novexapp_test
+          MYSQL_PASSWORD: ci_test_password
+          MYSQL_ROOT_PASSWORD: ci_root_password
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
 
     steps:
-      - name: Deploy in server via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Descargar código
+        uses: actions/checkout@v5
         with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            /var/www/crm/crmArgasa_back/deploy.sh
+          persist-credentials: false
+
+      - name: Preparar Java 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Compilar y ejecutar pruebas
+        env:
+          TEST_DB_PORT: '3307'
+          TEST_DB_USERNAME: novexapp_test
+          TEST_DB_PASSWORD: ci_test_password
+        run: bash ./mvnw --batch-mode clean verify
+
+      - name: Configurar SSH
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+
+      - name: Subir y activar nueva versión
+        env:
+          DEPLOY_HOST: ${{ secrets.HOST }}
+          DEPLOY_USER: ${{ secrets.USERNAME }}
+        run: |
+          set -euo pipefail
+          version="novexapp-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.jar"
+          destino="${DEPLOY_USER}@${DEPLOY_HOST}"
+
+          scp -i ~/.ssh/deploy_key \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 \
+            target/crm-0.0.1-SNAPSHOT.jar \
+            "${destino}:/opt/novexapp/releases/${version}.upload"
+
+          ssh -i ~/.ssh/deploy_key \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 \
+            "$destino" \
+            "set -e; mv /opt/novexapp/releases/${version}.upload /opt/novexapp/releases/${version}; sudo -n /usr/local/sbin/novexapp-deploy ${version}"
+
+      - name: Eliminar clave temporal
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
