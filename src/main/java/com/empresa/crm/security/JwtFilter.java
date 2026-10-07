@@ -55,8 +55,15 @@ public class JwtFilter extends OncePerRequestFilter {
 		}
 
 		if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-			UserDetails userDetails = usuarioDetailsService.loadUserByUsername(username);
+			UserDetails userDetails;
 
+			try {
+				userDetails = usuarioDetailsService.loadUserByUsername(username);
+
+			} catch (org.springframework.security.core.userdetails.UsernameNotFoundException ex) {
+				response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "La cuenta ya no existe");
+				return;
+			}
 			if (jwtUtil.validateToken(jwt, userDetails)) {
 				UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(userDetails,
 						null, userDetails.getAuthorities());
