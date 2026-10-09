@@ -29,12 +29,20 @@ public class FacturaDirectaService {
 	private final String electrolugaCompanyId;
 	private final RestClient argasaClient;
 	private final RestClient electrolugaClient;
+	private final String instalacionId;
 
 	public FacturaDirectaService(@Value("${facturadirecta.base-url}") String baseUrl,
 			@Value("${facturadirecta.company-id}") String argasaCompanyId,
 			@Value("${facturadirecta.api-key}") String argasaApiKey,
 			@Value("${facturadirecta.electroluga.company-id:}") String electrolugaCompanyId,
-			@Value("${facturadirecta.electroluga.api-key:}") String electrolugaApiKey) {
+			@Value("${facturadirecta.electroluga.api-key:}") String electrolugaApiKey,
+			@Value("${facturadirecta.instalacion-id}") String instalacionId) {
+
+		this.instalacionId = textoContacto(instalacionId);
+
+		if (!this.instalacionId.matches("[a-zA-Z0-9_-]{1,50}")) {
+			throw new IllegalStateException("Identificador de instalación de FacturaDirecta no válido");
+		}
 
 		this.argasaCompanyId = textoContacto(argasaCompanyId);
 		this.electrolugaCompanyId = textoContacto(electrolugaCompanyId);
@@ -384,8 +392,8 @@ public class FacturaDirectaService {
 
 		var main = crearMain(contactoId, factura.getFechaEmision().toString(), lineas);
 
-		String referencia = "novexapp-" + factura.getEmpresa() + "-factura-" + factura.getId();
-
+		String referencia = "novexapp-" + instalacionId + "-" + normalizarEmpresa(factura.getEmpresa()) + "-factura-"
+				+ factura.getId();
 		return clientePrueba(empresa).post().uri("/{companyId}/invoices", company)
 				.contentType(MediaType.APPLICATION_JSON)
 				.body(Map.of("content", Map.of("type", "invoice", "main", main), "tags", List.of(referencia)))
@@ -419,8 +427,8 @@ public class FacturaDirectaService {
 
 		String empresa = factura.getEmpresa();
 		String company = obtenerCompanyIdPrueba(empresa);
-		String referencia = "novexapp-" + factura.getEmpresa() + "-factura-" + factura.getId();
-
+		String referencia = "novexapp-" + instalacionId + "-" + normalizarEmpresa(factura.getEmpresa()) + "-factura-"
+				+ factura.getId();
 		JsonNode respuesta = clientePrueba(empresa).get()
 				.uri(builder -> builder.path("/{companyId}/invoices").queryParam("draft", "all")
 						.queryParam("allTheseTags", referencia).queryParam("limit", 2).build(company))
