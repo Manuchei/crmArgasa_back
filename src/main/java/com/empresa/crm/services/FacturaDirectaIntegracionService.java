@@ -111,19 +111,6 @@ public class FacturaDirectaIntegracionService {
 
 		JsonNode remota = api.consultarFacturaPrueba(factura.getEmpresa(), factura.getFacturaDirectaId());
 
-		System.out.println("=== LINEAS FACTURADIRECTA ===");
-		System.out.println(remota.path("content").path("main").path("lines").toPrettyString());
-
-		System.out.println("=== LINEAS NOVEXAPP ===");
-		factura.getLineas().forEach(linea -> {
-			System.out.println("Descripción: " + linea.getDescripcion());
-			System.out.println("Cantidad: " + linea.getCantidad());
-			System.out.println("Precio: " + linea.getPrecioUnitario());
-			System.out.println("Descuento: " + linea.getDescuentoPct());
-			System.out.println("IVA: " + linea.getIvaPct());
-			System.out.println("Subtotal: " + linea.getSubtotal());
-		});
-
 		comprobarFacturaParaEmision(factura, remota, contactoId);
 
 		JsonNode main = remota.path("content").path("main");
@@ -180,6 +167,7 @@ public class FacturaDirectaIntegracionService {
 	}
 
 	private FacturaV2Response guardarResultadoEmision(Long facturaId, JsonNode respuesta) {
+
 		if (respuesta == null) {
 			throw new IllegalStateException("FacturaDirecta no devolvió el resultado");
 		}
@@ -191,17 +179,20 @@ public class FacturaDirectaIntegracionService {
 		if (!"invoice".equals(content.path("type").asText()) || !remotoId.startsWith("inv_")) {
 			throw new IllegalStateException("FacturaDirecta no devolvió una factura válida");
 		}
+
 		if (!main.path("draft").isBoolean() || main.path("draft").booleanValue() || main.path("voided").asBoolean()) {
-			throw new IllegalStateException("FacturaDirecta no ha confirmado una factura definitiva vigente");
+			throw new IllegalStateException("FacturaDirecta no ha confirmado " + "una factura definitiva vigente");
 		}
 
 		JsonNode docNumber = main.path("docNumber");
+
 		if (!docNumber.path("number").isIntegralNumber() || docNumber.path("number").asLong() <= 0
 				|| docNumber.path("formattedSeries").asText().isBlank()) {
-			throw new IllegalStateException("FacturaDirecta no devolvió una numeración definitiva válida");
+			throw new IllegalStateException("FacturaDirecta no devolvió " + "una numeración definitiva válida");
 		}
 
 		String numero = docNumber.path("formattedSeries").asText() + " " + docNumber.path("number").asText();
+
 		String qrUrl = content.path("meta").path("verifactu").path("qrUrl").asText("");
 
 		// Una factura definitiva puede tener el QR pendiente de generación.
@@ -218,7 +209,6 @@ public class FacturaDirectaIntegracionService {
 
 		if (!"invoice".equals(content.path("type").asText()) || factura.getFacturaDirectaId() == null
 				|| !factura.getFacturaDirectaId().equals(content.path("uuid").asText())) {
-
 			throw new IllegalStateException("La factura remota no coincide");
 		}
 
@@ -227,24 +217,39 @@ public class FacturaDirectaIntegracionService {
 		}
 
 		if (main.path("external").asBoolean() || main.path("simplified").asBoolean()) {
-
 			throw new IllegalStateException("Esta prueba solo admite facturas completas no externas");
 		}
 
-		if (!"EUR".equals(main.path("currency").asText()) || !mismoNumero(1.0, main.path("exchangeRate"))
-				|| factura.getFechaEmision() == null
-				|| !factura.getFechaEmision().toString().equals(main.path("date").asText())
-				|| !"F##".equals(main.path("docNumber").path("series").asText())
-				|| !"F1".equals(main.path("verifactu").path("TipoFactura").asText())) {
+		if (!"EUR".equals(main.path("currency").asText())) {
+			throw new IllegalStateException(
+					"Moneda remota no válida. Esperada: EUR; recibida: " + main.path("currency"));
+		}
 
-			throw new IllegalStateException("La fecha, moneda, cambio, serie o tipo de factura remota no coincide");
+		if (!mismoNumero(1.0, main.path("exchangeRate"))) {
+			throw new IllegalStateException(
+					"Cambio remoto no válido. Esperado: 1; recibido: " + main.path("exchangeRate"));
+		}
+
+		if (factura.getFechaEmision() == null
+				|| !factura.getFechaEmision().toString().equals(main.path("date").asText())) {
+			throw new IllegalStateException(
+					"Fecha distinta. Local: " + factura.getFechaEmision() + "; remota: " + main.path("date"));
+		}
+
+		if (!"F##".equals(main.path("docNumber").path("series").asText())) {
+			throw new IllegalStateException(
+					"Serie remota distinta. Esperada: F##; recibida: " + main.path("docNumber").path("series"));
+		}
+
+		if (!"F1".equals(main.path("verifactu").path("TipoFactura").asText())) {
+			throw new IllegalStateException("Tipo de factura remoto distinto. " + "Esperado: F1; recibido: "
+					+ main.path("verifactu").path("TipoFactura"));
 		}
 
 		JsonNode lineas = main.path("lines");
 
 		if (!lineas.isArray() || factura.getLineas() == null || lineas.size() != factura.getLineas().size()
 				|| lineas.isEmpty()) {
-
 			throw new IllegalStateException("Las líneas remotas no coinciden con NovexApp");
 		}
 
@@ -260,7 +265,6 @@ public class FacturaDirectaIntegracionService {
 					|| !Double.isFinite(local.getDescuentoPct()) || local.getDescuentoPct() < 0
 					|| local.getDescuentoPct() > 100 || local.getSubtotal() == null
 					|| !Double.isFinite(local.getSubtotal())) {
-
 				throw new IllegalStateException("Hay una línea local con datos no válidos");
 			}
 
@@ -269,9 +273,8 @@ public class FacturaDirectaIntegracionService {
 			double subtotalEsperado = Math.round(bruto * (1.0 - local.getDescuentoPct() / 100.0) * 100.0) / 100.0;
 
 			if (!Double.isFinite(bruto) || Double.compare(subtotalEsperado, local.getSubtotal()) != 0) {
-
 				throw new IllegalStateException(
-						"El subtotal local no corresponde al precio y descuento: " + local.getDescripcion());
+						"El subtotal local no corresponde al precio " + "y descuento: " + local.getDescripcion());
 			}
 
 			double tasaDescuento = local.getDescuentoPct() / 100.0;
@@ -302,7 +305,7 @@ public class FacturaDirectaIntegracionService {
 
 			if (encontrada < 0) {
 				throw new IllegalStateException("La línea remota no coincide: " + local.getDescripcion()
-						+ ". Revisa cantidad, precio, descuento, subtotal e impuestos");
+						+ ". Revisa cantidad, precio, descuento, " + "subtotal e impuestos");
 			}
 
 			pendientes.remove(encontrada);
@@ -313,7 +316,7 @@ public class FacturaDirectaIntegracionService {
 
 		if (!tieneTexto(contactoId) || respuesta == null
 				|| !contactoId.equals(respuesta.path("content").path("main").path("contact").asText())) {
-			throw new IllegalStateException("La factura remota no corresponde " + "al contacto esperado");
+			throw new IllegalStateException("La factura remota no corresponde al contacto esperado");
 		}
 
 		if (respuesta.path("content").path("main").path("voided").asBoolean()) {
