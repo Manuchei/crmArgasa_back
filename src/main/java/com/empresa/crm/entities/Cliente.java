@@ -10,6 +10,7 @@ import lombok.Data;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.empresa.crm.entities.Cliente;
 
 @Data
 @Entity
@@ -42,6 +43,14 @@ public class Cliente {
 	private String movil;
 	private String cifDni;
 	private String email;
+
+	@Column(name = "facturadirecta_company_id")
+	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
+	private String facturaDirectaCompanyId;
+
+	@Column(name = "facturadirecta_contact_id")
+	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
+	private String facturaDirectaContactId;
 
 	private Double totalImporte = 0.0;
 	private Double totalPagado = 0.0;
@@ -199,4 +208,5 @@ public class Cliente {
 
 		trabajo.setCliente(null);
 	}
+
 }

@@ -89,6 +89,8 @@ public class SecurityConfig {
 						// ADMIN y USER; DEVELOPER hereda ADMIN.
 						.requestMatchers("/api/inventarios/**").access(permisosInventarios)
 
+						.requestMatchers(HttpMethod.POST, "/api/webhooks/facturadirecta").permitAll()
+
 						.requestMatchers("/api/**").authenticated()
 
 						.anyRequest().permitAll())

@@ -49,6 +49,21 @@ public class FacturaV2 {
 	@Column(name = "hash_emision")
 	private String hashEmision;
 
+	@Column(name = "facturadirecta_company_id")
+	private String facturaDirectaCompanyId;
+
+	@Column(name = "facturadirecta_id")
+	private String facturaDirectaId;
+
+	@Column(name = "facturadirecta_numero")
+	private String facturaDirectaNumero;
+
+	@Column(name = "verifactu_estado")
+	private String verifactuEstado;
+
+	@Column(name = "verifactu_qr_url", length = 2048)
+	private String verifactuQrUrl;
+
 	@OneToMany(mappedBy = "factura", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<LineaFacturaV2> lineas = new ArrayList<>();
 

@@ -30,7 +30,7 @@ public interface FacturaV2Repository extends JpaRepository<FacturaV2, Long> {
 	List<FacturaV2> findByEmpresaAndCliente_IdAndEstadoOrderByFechaEmisionDesc(String empresa, Long clienteId,
 			String estado);
 
-	@Query("""
+	@Query(""" 	
 			  select f
 			  from FacturaV2 f
 			  join fetch f.cliente c

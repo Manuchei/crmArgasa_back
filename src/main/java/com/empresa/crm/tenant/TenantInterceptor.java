@@ -1,50 +1,62 @@
 package com.empresa.crm.tenant;
 
+import java.util.Locale;
+
+import org.springframework.web.servlet.HandlerInterceptor;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.web.servlet.HandlerInterceptor;
 
 public class TenantInterceptor implements HandlerInterceptor {
 
 	@Override
 	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
 
-		// ✅ Dejar pasar preflight
+		TenantContext.clear();
+
 		if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
 			return true;
 		}
 
-		String path = request.getRequestURI();
+		String path = request.getServletPath();
 
-		// ✅ Rutas públicas (login/register)
-		boolean esPublico = path.equals("/api/auth/login") || path.equals("/api/auth/register");
+		// La empresa del webhook se comprueba en su contenido firmado.
+		if ("POST".equalsIgnoreCase(request.getMethod()) && "/api/webhooks/facturadirecta".equals(path)) {
+			return true;
+		}
+
+		boolean esPublico = "/api/auth/login".equals(path) || "/api/auth/register".equals(path);
+
 		String tenant = request.getHeader("X-Empresa");
 
-		// ✅ fallback por query param (compatibilidad)
 		if (tenant == null || tenant.isBlank()) {
 			tenant = request.getParameter("empresa");
 		}
 
-		// Si no hay empresa y NO es público => error
 		if (tenant == null || tenant.isBlank()) {
-			if (esPublico)
+			if (esPublico) {
 				return true;
+			}
 
 			response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			response.setContentType("text/plain;charset=UTF-8");
+
 			try {
 				response.getWriter().write("Empresa no seleccionada");
-			} catch (Exception ignored) {
+			} catch (java.io.IOException ignored) {
 			}
+
 			return false;
 		}
 
-		TenantContext.set(tenant.trim().toUpperCase());
+		TenantContext.set(tenant.trim().toUpperCase(Locale.ROOT));
 		return true;
 	}
 
 	@Override
 	public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler,
 			Exception ex) {
+
 		TenantContext.clear();
 	}
 }
