@@ -41,6 +41,9 @@ public class Producto {
 	@Column(nullable = false)
 	private String modelo;
 
+	@Column(name = "numero_serie", length = 100)
+	private String numeroSerie;
+
 	@Column(nullable = false)
 	private String familia;
 

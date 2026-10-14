@@ -64,7 +64,7 @@ public class Trabajo {
 	@JoinColumn(name = "factura_id")
 	@JsonIgnore
 	private FacturaProveedor factura;
-	
+
 	@Column(name = "numero_interno_albaran", length = 50)
 	private String numeroInternoAlbaran;
 
@@ -76,6 +76,21 @@ public class Trabajo {
 
 	@Column(name = "fecha_albaran")
 	private LocalDate fechaAlbaran;
+
+	@Column(name = "es_obra", nullable = false)
+	private boolean obra = false;
+
+	@Column(name = "nombre_contacto", length = 150)
+	private String nombreContacto;
+
+	@Column(name = "direccion_obra", length = 500)
+	private String direccionObra;
+
+	@Column(name = "telefono_obra", length = 50)
+	private String telefonoObra;
+
+	@Column(name = "estado_obra", length = 20)
+	private String estadoObra;
 
 	@PrePersist
 	@PreUpdate

@@ -19,7 +19,7 @@ import org.springframework.http.HttpStatus;
 import com.empresa.crm.entities.Transportista;
 import com.empresa.crm.repositories.TransportistaRepository;
 
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('USER','ADMIN','DEVELOPER','TRANSPORTISTA')")
 @RestController
 @RequestMapping("/api/transportistas")
 @CrossOrigin(origins = "http://localhost:4200")

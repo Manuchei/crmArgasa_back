@@ -20,7 +20,7 @@ import com.empresa.crm.tenant.TenantContext;
 
 import jakarta.validation.Valid;
 
-@PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
+@PreAuthorize("hasAnyRole('USER','ADMIN','DEVELOPER','TRANSPORTISTA')")
 @RestController
 @RequestMapping("/api/clientes")
 @CrossOrigin(origins = "http://localhost:4200")

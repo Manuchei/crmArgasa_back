@@ -41,6 +41,7 @@ public class ProductoServiceImpl implements ProductoService {
 		producto.setGama(producto.getGama().trim());
 		producto.setMarca(producto.getMarca().trim());
 		producto.setModelo(producto.getModelo().trim());
+		producto.setNumeroSerie(producto.getNumeroSerie() != null ? producto.getNumeroSerie().trim() : null);
 		producto.setFamilia(producto.getFamilia().trim());
 		producto.setSubfamilia(producto.getSubfamilia().trim());
 		producto.setDescripcion(producto.getDescripcion().trim());
@@ -66,6 +67,7 @@ public class ProductoServiceImpl implements ProductoService {
 		existente.setGama(producto.getGama().trim());
 		existente.setMarca(producto.getMarca().trim());
 		existente.setModelo(producto.getModelo().trim());
+		existente.setNumeroSerie(producto.getNumeroSerie() != null ? producto.getNumeroSerie().trim() : null);
 		existente.setFamilia(producto.getFamilia().trim());
 		existente.setSubfamilia(producto.getSubfamilia().trim());
 		existente.setDescripcion(producto.getDescripcion().trim());

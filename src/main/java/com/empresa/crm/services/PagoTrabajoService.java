@@ -11,15 +11,20 @@ import com.empresa.crm.entities.Trabajo;
 import com.empresa.crm.repositories.PagoTrabajoRepository;
 import com.empresa.crm.repositories.TrabajoRepository;
 
+import com.empresa.crm.caja.CajaService;
+import com.empresa.crm.tenant.TenantContext;
+
 @Service
 public class PagoTrabajoService {
 
 	private final PagoTrabajoRepository pagoRepo;
 	private final TrabajoRepository trabajoRepo;
+	private final CajaService cajaService;
 
-	public PagoTrabajoService(PagoTrabajoRepository pagoRepo, TrabajoRepository trabajoRepo) {
+	public PagoTrabajoService(PagoTrabajoRepository pagoRepo, TrabajoRepository trabajoRepo, CajaService cajaService) {
 		this.pagoRepo = pagoRepo;
 		this.trabajoRepo = trabajoRepo;
+		this.cajaService = cajaService;
 	}
 
 	public List<PagoTrabajo> listarPorCliente(Long clienteId) {
@@ -37,12 +42,17 @@ public class PagoTrabajoService {
 		if (t == null)
 			throw new RuntimeException("Trabajo no encontrado");
 
+		if (t.getEmpresa() == null || !t.getEmpresa().equals(TenantContext.get())) {
+			throw new RuntimeException("El trabajo no pertenece a la empresa activa");
+		}
+
 		double importePago = safe(req.getImporte());
 		if (importePago <= 0)
 			throw new RuntimeException("Importe inválido");
 
 		// Guardamos el pago (histórico)
 		PagoTrabajo p = new PagoTrabajo();
+		p.setEmpresa(t.getEmpresa());
 		p.setTrabajo(t);
 		p.setCliente(t.getCliente());
 		p.setImporte(importePago);
@@ -60,6 +70,8 @@ public class PagoTrabajoService {
 
 		trabajoRepo.save(t);
 
+		cajaService.registrarCobro("PAGO_TRABAJO", p.getId(), t.getEmpresa(), p.getImporte(), p.getMetodo(),
+				"Cobro de trabajo #" + t.getId() + " · " + t.getDescripcion());
 		return p;
 	}
 

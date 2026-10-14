@@ -50,51 +50,64 @@ public class SecurityConfig {
 		DefaultMethodSecurityExpressionHandler handler = new DefaultMethodSecurityExpressionHandler();
 
 		handler.setRoleHierarchy(roleHierarchy);
-
 		return handler;
+	}
+
+	private AuthorityAuthorizationManager<RequestAuthorizationContext> permisos(RoleHierarchy jerarquia,
+			String... roles) {
+
+		AuthorityAuthorizationManager<RequestAuthorizationContext> manager = AuthorityAuthorizationManager
+				.hasAnyRole(roles);
+
+		manager.setRoleHierarchy(jerarquia);
+		return manager;
 	}
 
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http, RoleHierarchy roleHierarchy) throws Exception {
 
-		AuthorityAuthorizationManager<RequestAuthorizationContext> permisosInventarios = AuthorityAuthorizationManager
-				.hasAnyRole("ADMIN", "USER");
+		var generales = permisos(roleHierarchy, "USER", "ADMIN", "DEVELOPER");
 
-		permisosInventarios.setRoleHierarchy(roleHierarchy);
+		var equipo = permisos(roleHierarchy, "ADMIN", "DEVELOPER");
 
-		http.csrf(csrf -> csrf.disable())
+		var rutas = permisos(roleHierarchy, "USER", "ADMIN", "DEVELOPER", "TRANSPORTISTA");
 
-				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
+		http.csrf(csrf -> csrf.disable()).cors(cors -> cors.configurationSource(corsConfigurationSource()))
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-				.authorizeHttpRequests(auth -> auth
-
-						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+				.authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
 						.requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-
-						// El registro público está bloqueado.
 						.requestMatchers("/api/auth/register").denyAll()
 
-						// Solo DEVELOPER puede gestionar cuentas e historial.
-						.requestMatchers("/api/developer/**").hasRole("DEVELOPER")
+						.requestMatchers("/api/developer/**", "/api/usuarios/**").hasRole("DEVELOPER")
 
 						.requestMatchers(HttpMethod.GET, "/api/push/public-key").permitAll()
-
 						.requestMatchers(HttpMethod.POST, "/api/push/subscribe").permitAll()
-
 						.requestMatchers(HttpMethod.POST, "/api/push/unsubscribe").permitAll()
-
-						// ADMIN y USER; DEVELOPER hereda ADMIN.
-						.requestMatchers("/api/inventarios/**").access(permisosInventarios)
 
 						.requestMatchers(HttpMethod.POST, "/api/webhooks/facturadirecta").permitAll()
 
-						.requestMatchers("/api/**").authenticated()
+						.requestMatchers("/api/fichajes/empleados", "/api/fichajes/empleados/**",
+								"/api/fichajes/usuarios-disponibles", "/api/fichajes/registros",
+								"/api/fichajes/registros/**")
+						.access(equipo)
+
+						.requestMatchers("/api/fichajes/mi-estado", "/api/fichajes/entrada", "/api/fichajes/salida",
+								"/api/fichajes/mis-registros")
+						.access(rutas)
+
+						.requestMatchers("/api/fichajes/**").access(generales)
+
+						.requestMatchers("/api/rutas", "/api/rutas/**", "/api/ruta-lineas", "/api/ruta-lineas/**")
+						.access(rutas)
+
+						.requestMatchers(HttpMethod.GET, "/api/clientes", "/api/clientes/*/productos/pendientes",
+								"/api/transportistas")
+						.access(rutas)
+
+						.requestMatchers("/api/**").access(generales)
 
 						.anyRequest().permitAll())
-
 				.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();
@@ -102,9 +115,7 @@ public class SecurityConfig {
 
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
-
 		return request -> {
-
 			CorsConfiguration configuration = new CorsConfiguration();
 
 			configuration.setAllowedOriginPatterns(List.of("http://localhost:4200", "https://novexapp.es"));

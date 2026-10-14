@@ -20,265 +20,237 @@ import com.empresa.crm.repositories.ProductoRepository;
 import com.empresa.crm.repositories.TransportistaRepository;
 import com.empresa.crm.services.RutaService;
 
-@PreAuthorize("hasRole('ADMIN') or hasRole('TRANSPORTISTA')")
+@PreAuthorize("hasAnyRole('USER','ADMIN','DEVELOPER','TRANSPORTISTA')")
 @RestController
 @RequestMapping("/api/rutas")
 @CrossOrigin(origins = "http://localhost:4200")
 public class RutaController {
 
-    private final RutaService rutaService;
-    private final ClienteRepository clienteRepo;
-    private final ProductoRepository productoRepo;
-    private final TransportistaRepository transportistaRepo;
+	private final RutaService rutaService;
+	private final ClienteRepository clienteRepo;
+	private final ProductoRepository productoRepo;
+	private final TransportistaRepository transportistaRepo;
 
-    public RutaController(
-            RutaService rutaService,
-            ClienteRepository clienteRepo,
-            ProductoRepository productoRepo,
-            TransportistaRepository transportistaRepo
-    ) {
-        this.rutaService = rutaService;
-        this.clienteRepo = clienteRepo;
-        this.productoRepo = productoRepo;
-        this.transportistaRepo = transportistaRepo;
-    }
+	public RutaController(RutaService rutaService, ClienteRepository clienteRepo, ProductoRepository productoRepo,
+			TransportistaRepository transportistaRepo) {
+		this.rutaService = rutaService;
+		this.clienteRepo = clienteRepo;
+		this.productoRepo = productoRepo;
+		this.transportistaRepo = transportistaRepo;
+	}
 
-    @GetMapping
-    public List<Ruta> listarTodas() {
-        return rutaService.findAll();
-    }
+	@GetMapping
+	public List<Ruta> listarTodas() {
+		return rutaService.findAll();
+	}
 
-    @GetMapping("/{id}")
-    public Ruta obtenerPorId(@PathVariable Long id) {
-        return rutaService.findById(id);
-    }
+	@GetMapping("/{id}")
+	public Ruta obtenerPorId(@PathVariable Long id) {
+		return rutaService.findById(id);
+	}
 
-    @PostMapping
-    public Ruta crear(
-            @RequestBody RutaRequestDTO dto,
-            @RequestHeader(value = "X-Empresa", required = false) String empresaHeader
-    ) {
+	@PostMapping
+	public Ruta crear(@RequestBody RutaRequestDTO dto,
+			@RequestHeader(value = "X-Empresa", required = false) String empresaHeader) {
 
-        if (dto.getClienteId() == null) {
-            throw new IllegalArgumentException("Cliente obligatorio (clienteId).");
-        }
+		if (dto.getClienteId() == null) {
+			throw new IllegalArgumentException("Cliente obligatorio (clienteId).");
+		}
 
-        if (dto.getTransportistaId() == null) {
-            throw new IllegalArgumentException("Transportista obligatorio (transportistaId).");
-        }
+		if (dto.getTransportistaId() == null) {
+			throw new IllegalArgumentException("Transportista obligatorio (transportistaId).");
+		}
 
-        Cliente cliente = clienteRepo.findById(dto.getClienteId())
-                .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+		Cliente cliente = clienteRepo.findById(dto.getClienteId())
+				.orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
 
-        String empresa = (dto.getEmpresa() != null && !dto.getEmpresa().isBlank())
-                ? dto.getEmpresa().trim()
-                : (empresaHeader != null && !empresaHeader.isBlank())
-                ? empresaHeader.trim()
-                : (cliente.getEmpresa() != null ? cliente.getEmpresa().trim() : null);
+		String empresa = (dto.getEmpresa() != null && !dto.getEmpresa().isBlank()) ? dto.getEmpresa().trim()
+				: (empresaHeader != null && !empresaHeader.isBlank()) ? empresaHeader.trim()
+						: (cliente.getEmpresa() != null ? cliente.getEmpresa().trim() : null);
 
-        if (empresa == null || empresa.isBlank()) {
-            throw new IllegalArgumentException("Empresa obligatoria (ARGASA / ELECTROLUGA).");
-        }
+		if (empresa == null || empresa.isBlank()) {
+			throw new IllegalArgumentException("Empresa obligatoria (ARGASA / ELECTROLUGA).");
+		}
 
-        Transportista transportista = transportistaRepo.findById(dto.getTransportistaId())
-                .orElseThrow(() -> new RuntimeException("Transportista no encontrado"));
+		Transportista transportista = transportistaRepo.findById(dto.getTransportistaId())
+				.orElseThrow(() -> new RuntimeException("Transportista no encontrado"));
 
-        if (transportista.getEmpresa() != null
-                && !transportista.getEmpresa().equalsIgnoreCase(empresa)) {
-            throw new IllegalArgumentException(
-                    "El transportista no pertenece a la empresa " + empresa
-            );
-        }
+		if (transportista.getEmpresa() != null && !transportista.getEmpresa().equalsIgnoreCase(empresa)) {
+			throw new IllegalArgumentException("El transportista no pertenece a la empresa " + empresa);
+		}
 
-        Ruta ruta = new Ruta();
-        ruta.setCliente(cliente);
+		Ruta ruta = new Ruta();
+		ruta.setCliente(cliente);
 
-        ruta.setTransportista(transportista);
-        ruta.setNombreTransportista(transportista.getNombre());
-        ruta.setEmailTransportista(transportista.getEmail());
-        
-        ruta.setAcompanante1(dto.getAcompanante1());
-        ruta.setAcompanante2(dto.getAcompanante2());
+		ruta.setTransportista(transportista);
+		ruta.setNombreTransportista(transportista.getNombre());
+		ruta.setEmailTransportista(transportista.getEmail());
 
-        ruta.setFecha(dto.getFecha());
-        ruta.setEstado(dto.getEstado());
+		ruta.setAcompanante1(dto.getAcompanante1());
+		ruta.setAcompanante2(dto.getAcompanante2());
 
-        ruta.setOrigen(dto.getOrigen());
-        ruta.setDestino(dto.getDestino());
-        ruta.setTarea(dto.getTarea());
-        ruta.setObservaciones(dto.getObservaciones());
+		ruta.setFecha(dto.getFecha());
+		ruta.setEstado(dto.getEstado());
 
-        ruta.setEmpresa(empresa);
+		ruta.setOrigen(dto.getOrigen());
+		ruta.setDestino(dto.getDestino());
+		ruta.setTarea(dto.getTarea());
+		ruta.setObservaciones(dto.getObservaciones());
 
-        if (dto.getLineas() != null && !dto.getLineas().isEmpty()) {
+		ruta.setEmpresa(empresa);
 
-            List<RutaLinea> lineas = new ArrayList<>();
+		if (dto.getLineas() != null && !dto.getLineas().isEmpty()) {
 
-            for (RutaLineaDTO l : dto.getLineas()) {
-                if (l.getProductoId() == null) {
-                    throw new IllegalArgumentException("productoId obligatorio en lineas");
-                }
-                if (l.getCantidad() == null || l.getCantidad() <= 0) {
-                    throw new IllegalArgumentException("cantidad > 0 obligatoria en lineas");
-                }
+			List<RutaLinea> lineas = new ArrayList<>();
 
-                Producto p = productoRepo.findById(l.getProductoId())
-                        .orElseThrow(() -> new RuntimeException(
-                        "Producto no encontrado: " + l.getProductoId()
-                ));
+			for (RutaLineaDTO l : dto.getLineas()) {
+				if (l.getProductoId() == null) {
+					throw new IllegalArgumentException("productoId obligatorio en lineas");
+				}
+				if (l.getCantidad() == null || l.getCantidad() <= 0) {
+					throw new IllegalArgumentException("cantidad > 0 obligatoria en lineas");
+				}
 
-                if (p.getEmpresa() != null && !p.getEmpresa().equalsIgnoreCase(empresa)) {
-                    throw new IllegalArgumentException(
-                            "El producto " + p.getId() + " no pertenece a la empresa " + empresa
-                    );
-                }
+				Producto p = productoRepo.findById(l.getProductoId())
+						.orElseThrow(() -> new RuntimeException("Producto no encontrado: " + l.getProductoId()));
 
-                RutaLinea rl = new RutaLinea();
-                rl.setRuta(ruta);
-                rl.setProducto(p);
-                rl.setCantidad(l.getCantidad());
-                rl.setEstado("PENDIENTE");
+				if (p.getEmpresa() != null && !p.getEmpresa().equalsIgnoreCase(empresa)) {
+					throw new IllegalArgumentException(
+							"El producto " + p.getId() + " no pertenece a la empresa " + empresa);
+				}
 
-                lineas.add(rl);
-            }
+				RutaLinea rl = new RutaLinea();
+				rl.setRuta(ruta);
+				rl.setProducto(p);
+				rl.setCantidad(l.getCantidad());
+				rl.setEstado("PENDIENTE");
 
-            ruta.setLineas(lineas);
-        }
+				lineas.add(rl);
+			}
 
-        return rutaService.save(ruta);
-    }
+			ruta.setLineas(lineas);
+		}
 
-    @PutMapping("/{id}")
-    public Ruta actualizar(
-            @PathVariable Long id,
-            @RequestBody RutaRequestDTO dto,
-            @RequestHeader(value = "X-Empresa", required = false) String empresaHeader
-    ) {
+		return rutaService.save(ruta);
+	}
 
-        if (dto.getClienteId() == null) {
-            throw new IllegalArgumentException("Cliente obligatorio (clienteId).");
-        }
+	@PutMapping("/{id}")
+	public Ruta actualizar(@PathVariable Long id, @RequestBody RutaRequestDTO dto,
+			@RequestHeader(value = "X-Empresa", required = false) String empresaHeader) {
 
-        Cliente cliente = clienteRepo.findById(dto.getClienteId())
-                .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+		if (dto.getClienteId() == null) {
+			throw new IllegalArgumentException("Cliente obligatorio (clienteId).");
+		}
 
-        String empresa = (dto.getEmpresa() != null && !dto.getEmpresa().isBlank())
-                ? dto.getEmpresa().trim()
-                : (empresaHeader != null && !empresaHeader.isBlank())
-                ? empresaHeader.trim()
-                : (cliente.getEmpresa() != null ? cliente.getEmpresa().trim() : null);
+		Cliente cliente = clienteRepo.findById(dto.getClienteId())
+				.orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
 
-        if (empresa == null || empresa.isBlank()) {
-            throw new IllegalArgumentException("Empresa obligatoria (ARGASA / ELECTROLUGA).");
-        }
+		String empresa = (dto.getEmpresa() != null && !dto.getEmpresa().isBlank()) ? dto.getEmpresa().trim()
+				: (empresaHeader != null && !empresaHeader.isBlank()) ? empresaHeader.trim()
+						: (cliente.getEmpresa() != null ? cliente.getEmpresa().trim() : null);
 
-        Ruta ruta = rutaService.findById(id);
-        if (ruta == null) {
-            throw new RuntimeException("Ruta no encontrada");
-        }
+		if (empresa == null || empresa.isBlank()) {
+			throw new IllegalArgumentException("Empresa obligatoria (ARGASA / ELECTROLUGA).");
+		}
 
-        ruta.setCliente(cliente);
+		Ruta ruta = rutaService.findById(id);
+		if (ruta == null) {
+			throw new RuntimeException("Ruta no encontrada");
+		}
 
-        // ✅ SOLO cambiar transportista si viene informado
-        if (dto.getTransportistaId() != null) {
-            Transportista transportista = transportistaRepo.findById(dto.getTransportistaId())
-                    .orElseThrow(() -> new RuntimeException("Transportista no encontrado"));
+		ruta.setCliente(cliente);
 
-            if (transportista.getEmpresa() != null
-                    && !transportista.getEmpresa().equalsIgnoreCase(empresa)) {
-                throw new IllegalArgumentException(
-                        "El transportista no pertenece a la empresa " + empresa
-                );
-            }
+		// ✅ SOLO cambiar transportista si viene informado
+		if (dto.getTransportistaId() != null) {
+			Transportista transportista = transportistaRepo.findById(dto.getTransportistaId())
+					.orElseThrow(() -> new RuntimeException("Transportista no encontrado"));
 
-            ruta.setTransportista(transportista);
-            ruta.setNombreTransportista(transportista.getNombre());
-            ruta.setEmailTransportista(transportista.getEmail());
-        } else {
-            // ✅ compatibilidad con edición antigua
-            if (dto.getNombreTransportista() != null && !dto.getNombreTransportista().isBlank()) {
-                ruta.setNombreTransportista(dto.getNombreTransportista());
-            }
-            if (dto.getEmailTransportista() != null && !dto.getEmailTransportista().isBlank()) {
-                ruta.setEmailTransportista(dto.getEmailTransportista());
-            }
-        }
+			if (transportista.getEmpresa() != null && !transportista.getEmpresa().equalsIgnoreCase(empresa)) {
+				throw new IllegalArgumentException("El transportista no pertenece a la empresa " + empresa);
+			}
 
-        ruta.setFecha(dto.getFecha());
-        ruta.setEstado(dto.getEstado());
+			ruta.setTransportista(transportista);
+			ruta.setNombreTransportista(transportista.getNombre());
+			ruta.setEmailTransportista(transportista.getEmail());
+		} else {
+			// ✅ compatibilidad con edición antigua
+			if (dto.getNombreTransportista() != null && !dto.getNombreTransportista().isBlank()) {
+				ruta.setNombreTransportista(dto.getNombreTransportista());
+			}
+			if (dto.getEmailTransportista() != null && !dto.getEmailTransportista().isBlank()) {
+				ruta.setEmailTransportista(dto.getEmailTransportista());
+			}
+		}
 
-        ruta.setOrigen(dto.getOrigen());
-        ruta.setDestino(dto.getDestino());
-        ruta.setTarea(dto.getTarea());
-        ruta.setObservaciones(dto.getObservaciones());
+		ruta.setFecha(dto.getFecha());
+		ruta.setEstado(dto.getEstado());
 
-        ruta.setEmpresa(empresa);
-        
-        ruta.setAcompanante1(dto.getAcompanante1());
-        ruta.setAcompanante2(dto.getAcompanante2());
+		ruta.setOrigen(dto.getOrigen());
+		ruta.setDestino(dto.getDestino());
+		ruta.setTarea(dto.getTarea());
+		ruta.setObservaciones(dto.getObservaciones());
 
-        return rutaService.save(ruta);
-    }
+		ruta.setEmpresa(empresa);
 
-    @DeleteMapping("/{id}")
-    public void eliminar(@PathVariable Long id) {
-        rutaService.deleteById(id);
-    }
+		ruta.setAcompanante1(dto.getAcompanante1());
+		ruta.setAcompanante2(dto.getAcompanante2());
 
-    @GetMapping("/estado/{estado}")
-    public List<Ruta> filtrarPorEstado(@PathVariable String estado) {
-        return rutaService.findByEstado(estado);
-    }
+		return rutaService.save(ruta);
+	}
 
-    @GetMapping("/transportista/{nombre}")
-    public List<Ruta> filtrarPorTransportista(@PathVariable String nombre) {
-        return rutaService.findByNombreTransportista(nombre);
-    }
+	@DeleteMapping("/{id}")
+	public void eliminar(@PathVariable Long id) {
+		rutaService.deleteById(id);
+	}
 
-    @GetMapping("/fecha/{fecha}")
-    public List<Ruta> filtrarPorFecha(@PathVariable String fecha) {
-        LocalDate f = LocalDate.parse(fecha);
-        return rutaService.findByFecha(f);
-    }
+	@GetMapping("/estado/{estado}")
+	public List<Ruta> filtrarPorEstado(@PathVariable String estado) {
+		return rutaService.findByEstado(estado);
+	}
 
-    @PutMapping("/cerrar/{id}")
-    public Ruta cerrarRuta(@PathVariable Long id) {
-        return rutaService.cerrarRuta(id);
-    }
+	@GetMapping("/transportista/{nombre}")
+	public List<Ruta> filtrarPorTransportista(@PathVariable String nombre) {
+		return rutaService.findByNombreTransportista(nombre);
+	}
 
-    @PostMapping("/dia")
-    public List<Ruta> crearRutasDia(
-            @RequestBody RutaDiaRequestDTO request,
-            @RequestHeader(value = "X-Empresa", required = false) String empresaHeader
-    ) {
+	@GetMapping("/fecha/{fecha}")
+	public List<Ruta> filtrarPorFecha(@PathVariable String fecha) {
+		LocalDate f = LocalDate.parse(fecha);
+		return rutaService.findByFecha(f);
+	}
 
-        if ((request.getEmpresa() == null || request.getEmpresa().isBlank())
-                && empresaHeader != null
-                && !empresaHeader.isBlank()) {
-            request.setEmpresa(empresaHeader.trim());
-        }
+	@PutMapping("/cerrar/{id}")
+	public Ruta cerrarRuta(@PathVariable Long id) {
+		return rutaService.cerrarRuta(id);
+	}
 
-        if (request.getEmpresa() == null || request.getEmpresa().isBlank()) {
-            throw new IllegalArgumentException("Empresa obligatoria (ARGASA / ELECTROLUGA)");
-        }
+	@PostMapping("/dia")
+	public List<Ruta> crearRutasDia(@RequestBody RutaDiaRequestDTO request,
+			@RequestHeader(value = "X-Empresa", required = false) String empresaHeader) {
 
-        if (request.getTransportistaId() == null) {
-            throw new IllegalArgumentException("Transportista obligatorio (transportistaId)");
-        }
+		if ((request.getEmpresa() == null || request.getEmpresa().isBlank()) && empresaHeader != null
+				&& !empresaHeader.isBlank()) {
+			request.setEmpresa(empresaHeader.trim());
+		}
 
-        Transportista transportista = transportistaRepo.findById(request.getTransportistaId())
-                .orElseThrow(() -> new RuntimeException("Transportista no encontrado"));
+		if (request.getEmpresa() == null || request.getEmpresa().isBlank()) {
+			throw new IllegalArgumentException("Empresa obligatoria (ARGASA / ELECTROLUGA)");
+		}
 
-        if (transportista.getEmpresa() != null
-                && !transportista.getEmpresa().equalsIgnoreCase(request.getEmpresa())) {
-            throw new IllegalArgumentException(
-                    "El transportista no pertenece a la empresa " + request.getEmpresa()
-            );
-        }
+		if (request.getTransportistaId() == null) {
+			throw new IllegalArgumentException("Transportista obligatorio (transportistaId)");
+		}
 
-        request.setNombreTransportista(transportista.getNombre());
-        request.setEmailTransportista(transportista.getEmail());
+		Transportista transportista = transportistaRepo.findById(request.getTransportistaId())
+				.orElseThrow(() -> new RuntimeException("Transportista no encontrado"));
 
-        return rutaService.crearRutasDeUnDia(request);
-    }
+		if (transportista.getEmpresa() != null && !transportista.getEmpresa().equalsIgnoreCase(request.getEmpresa())) {
+			throw new IllegalArgumentException("El transportista no pertenece a la empresa " + request.getEmpresa());
+		}
+
+		request.setNombreTransportista(transportista.getNombre());
+		request.setEmailTransportista(transportista.getEmail());
+
+		return rutaService.crearRutasDeUnDia(request);
+	}
 }

@@ -179,7 +179,7 @@ public class FacturacionV2Service {
 			throw new IllegalArgumentException("Debes seleccionar al menos un servicio o una línea de albarán");
 		}
 
-		if (servicioIds.contains(null) || lineaIds.contains(null)
+		if (servicioIds.stream().anyMatch(id -> id == null) || lineaIds.stream().anyMatch(id -> id == null)
 				|| new HashSet<>(servicioIds).size() != servicioIds.size()
 				|| new HashSet<>(lineaIds).size() != lineaIds.size()) {
 			throw new IllegalArgumentException("La selección contiene identificadores inválidos o repetidos");

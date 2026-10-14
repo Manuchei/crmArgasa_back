@@ -12,16 +12,19 @@ import com.empresa.crm.entities.Cliente;
 import com.empresa.crm.entities.PagoCliente;
 import com.empresa.crm.repositories.ClienteRepository;
 import com.empresa.crm.repositories.PagoClienteRepository;
+import com.empresa.crm.caja.CajaService;
 
 @Service
 public class PagoClienteService {
 
 	private final PagoClienteRepository pagoRepo;
 	private final ClienteRepository clienteRepo;
+	private final CajaService cajaService;
 
-	public PagoClienteService(PagoClienteRepository pagoRepo, ClienteRepository clienteRepo) {
+	public PagoClienteService(PagoClienteRepository pagoRepo, ClienteRepository clienteRepo, CajaService cajaService) {
 		this.pagoRepo = pagoRepo;
 		this.clienteRepo = clienteRepo;
+		this.cajaService = cajaService;
 	}
 
 	public List<PagoCliente> listarPorCliente(Long clienteId) {
@@ -54,7 +57,12 @@ public class PagoClienteService {
 		p.setNumeroTalonario(nullIfBlank(req.getNumeroTalonario()));
 		p.setObservaciones(nullIfBlank(req.getObservaciones()));
 
-		return pagoRepo.save(p);
+		PagoCliente guardado = pagoRepo.save(p);
+
+		cajaService.registrarCobro("PAGO_CLIENTE", guardado.getId(), guardado.getEmpresa(), guardado.getImporte(),
+				guardado.getMetodo(), "Cobro de " + c.getNombreApellidos() + " · Pago #" + guardado.getId());
+
+		return guardado;
 	}
 
 	public PagoClienteComprobanteDTO obtenerComprobante(Long pagoId) {
@@ -104,6 +112,8 @@ public class PagoClienteService {
 		if (p == null) {
 			throw new RuntimeException("Pago no encontrado");
 		}
+
+		cajaService.anularCobro("PAGO_CLIENTE", pagoId);
 
 		pagoRepo.deleteById(pagoId);
 	}
