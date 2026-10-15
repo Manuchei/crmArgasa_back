@@ -187,24 +187,24 @@ public class CajaService {
 	}
 
 	public Detalle abrir() {
-	    String empresa = empresa();
+		String empresa = empresa();
 
-	    bloqueo(empresa);
+		bloqueo(empresa);
 
-	    if (abierta(empresa) != null) {
-	        throw error("Ya hay una caja abierta");
-	    }
+		if (abierta(empresa) != null) {
+			throw error("Ya hay una caja abierta");
+		}
 
-	    CajaSesion caja = new CajaSesion();
-	    caja.empresa = empresa;
-	    caja.apertura = ahora();
-	    caja.abiertaPor = actor();
-	    caja.saldoInicial = ZERO;
+		CajaSesion caja = new CajaSesion();
+		caja.empresa = empresa;
+		caja.apertura = ahora();
+		caja.abiertaPor = actor();
+		caja.saldoInicial = ZERO;
 
-	    em.persist(caja);
-	    em.flush();
+		em.persist(caja);
+		em.flush();
 
-	    return detalle(caja);
+		return detalle(caja);
 	}
 
 	public Detalle cerrar(Long id, BigDecimal efectivoContado, String notas) {
@@ -376,5 +376,48 @@ public class CajaService {
 
 		em.persist(movimiento);
 		em.flush();
+	}
+
+	public void bloquearTickets() {
+		bloqueo(empresa());
+	}
+
+	public void registrarTicket(Long ticketId, BigDecimal total, String formaPago, String numero) {
+
+		String empresa = empresa();
+
+		bloqueo(empresa);
+
+		List<CajaMovimiento> existentes = em.createQuery("""
+				select m
+				from CajaMovimiento m, CajaSesion c
+				where m.cajaId = c.id
+				  and c.empresa = :empresa
+				  and m.origen = 'TICKET'
+				  and m.origenId = :id
+				""", CajaMovimiento.class).setParameter("empresa", empresa).setParameter("id", ticketId)
+				.getResultList();
+
+		if (!existentes.isEmpty()) {
+			return;
+		}
+
+		CajaSesion caja = abierta(empresa);
+
+		if (caja == null) {
+			throw error("Abre una caja antes de cobrar el ticket");
+		}
+
+		BigDecimal importe = dinero(total);
+
+		if (importe.signum() <= 0) {
+			throw error("El total del ticket debe ser mayor que cero");
+		}
+
+		if (!Set.of("EFECTIVO", "TPV", "TRANSFERENCIA").contains(formaPago == null ? "" : formaPago)) {
+			throw error("Forma de pago no válida");
+		}
+
+		insertar(caja, "TICKET", ticketId, importe, formaPago, "Venta rápida · " + numero);
 	}
 }
