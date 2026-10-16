@@ -37,6 +37,19 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.Locale;
+import java.util.Set;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+
+import com.empresa.crm.caja.CajaService;
+import com.empresa.crm.dto.PagoClienteCreateRequest;
+import com.empresa.crm.entities.PagoCliente;
+import com.empresa.crm.repositories.PagoClienteRepository;
+
 @Service
 public class FacturacionV2Service {
 
@@ -46,13 +59,18 @@ public class FacturacionV2Service {
 	private final FacturaV2Repository facturaRepo;
 	private final ContadorFacturaV2Repository contadorRepo;
 	private final AlbaranClienteService albaranClienteService;
+	private final PagoClienteService pagoClienteService;
+	private final PagoClienteRepository pagoClienteRepository;
+	private final CajaService cajaService;
 
 	@PersistenceContext
 	private EntityManager entityManager;
 
 	public FacturacionV2Service(ClienteRepository clienteRepo, ServicioClienteRepository servicioRepo,
 			LineaAlbaranClienteRepository lineaRepo, FacturaV2Repository facturaRepo,
-			ContadorFacturaV2Repository contadorRepo, AlbaranClienteService albaranClienteService) {
+			ContadorFacturaV2Repository contadorRepo, AlbaranClienteService albaranClienteService,
+			PagoClienteService pagoClienteService, PagoClienteRepository pagoClienteRepository,
+			CajaService cajaService) {
 
 		this.clienteRepo = clienteRepo;
 		this.servicioRepo = servicioRepo;
@@ -60,6 +78,9 @@ public class FacturacionV2Service {
 		this.facturaRepo = facturaRepo;
 		this.contadorRepo = contadorRepo;
 		this.albaranClienteService = albaranClienteService;
+		this.pagoClienteService = pagoClienteService;
+		this.pagoClienteRepository = pagoClienteRepository;
+		this.cajaService = cajaService;
 	}
 
 	@Transactional(readOnly = true)
@@ -405,18 +426,93 @@ public class FacturacionV2Service {
 	}
 
 	@Transactional
-	public FacturaV2Response marcarComoPagada(Long facturaId) {
-		FacturaV2 factura = cargarFactura(facturaId, empresaActual());
+	public FacturaV2Response marcarComoPagada(Long facturaId, String formaPago) {
+
+		String empresa = empresaActual();
+
+		String metodo = formaPago == null ? "" : formaPago.trim().toUpperCase(Locale.ROOT);
+
+		if ("METALICO".equals(metodo) || "METÁLICO".equals(metodo)) {
+			metodo = "EFECTIVO";
+		}
+
+		if ("TARJETA".equals(metodo)) {
+			metodo = "TPV";
+		}
+
+		if (!Set.of("EFECTIVO", "TPV", "TRANSFERENCIA").contains(metodo)) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selecciona TPV, metálico o transferencia");
+		}
+
+		/*
+		 * Mismo bloqueo que apertura/cierre de caja. Serializa el cobro antes de
+		 * bloquear la factura.
+		 */
+		cajaService.bloquearTickets();
+
+		FacturaV2 factura = cargarFactura(facturaId, empresa);
 
 		entityManager.refresh(factura, LockModeType.PESSIMISTIC_WRITE);
 
+		// Reintentar no vuelve a crear otro pago.
+		if ("PAGADA".equalsIgnoreCase(factura.getEstado())) {
+			return mapResponse(factura);
+		}
+
 		if (!"EMITIDA".equalsIgnoreCase(factura.getEstado())) {
-			throw new IllegalStateException("Solo se puede marcar como pagada una factura EMITIDA");
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "Solo se puede cobrar una factura emitida");
+		}
+
+		BigDecimal total = importeCobro(factura.getTotal());
+
+		BigDecimal cobrado = importeCobro(pagoClienteRepository.sumarPagosFactura(facturaId, empresa));
+
+		BigDecimal pendiente = total.subtract(cobrado).setScale(2, RoundingMode.HALF_UP);
+
+		if (pendiente.signum() < 0) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT,
+					"Los pagos vinculados superan el total de la factura");
+		}
+
+		if (pendiente.signum() > 0) {
+			if (cajaService.actual() == null) {
+				throw new ResponseStatusException(HttpStatus.CONFLICT, "Abre una caja antes de cobrar la factura");
+			}
+
+			PagoClienteCreateRequest request = new PagoClienteCreateRequest();
+
+			request.setFecha(LocalDate.now(ZoneId.of("Europe/Madrid")));
+
+			request.setImporte(pendiente.doubleValue());
+			request.setMetodo(metodo);
+
+			request.setObservaciones("Cobro de factura " + factura.getSerie() + "-" + factura.getNumero());
+
+			/*
+			 * crearPago() ya registra el movimiento PAGO_CLIENTE en caja. No hay que
+			 * registrar otro movimiento aquí.
+			 */
+			PagoCliente pago = pagoClienteService.crearPago(factura.getCliente().getId(), request);
+
+			pago.setFacturaV2Id(facturaId);
+			pagoClienteRepository.saveAndFlush(pago);
 		}
 
 		factura.setEstado("PAGADA");
 
-		return mapResponse(facturaRepo.save(factura));
+		return mapResponse(facturaRepo.saveAndFlush(factura));
+	}
+
+	private BigDecimal importeCobro(Double valor) {
+		if (valor == null) {
+			return new BigDecimal("0.00");
+		}
+
+		if (!Double.isFinite(valor) || valor < 0) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "Importe de factura o pago no válido");
+		}
+
+		return BigDecimal.valueOf(valor).setScale(2, RoundingMode.HALF_UP);
 	}
 
 	@Transactional

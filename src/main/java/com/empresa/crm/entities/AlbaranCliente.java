@@ -18,78 +18,82 @@ import lombok.Data;
 @Table(name = "albaranes_clientes")
 public class AlbaranCliente {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    @Column(nullable = false)
-    private String empresa;
+	@Column(nullable = false)
+	private String empresa;
 
-    @Column(nullable = false)
-    private LocalDate fechaEmision = LocalDate.now();
+	@Column(nullable = false)
+	private LocalDate fechaEmision = LocalDate.now();
 
-    private String numero;
+	private String numero;
 
-    // ====== SNAPSHOT CLIENTE ======
-    private String nombreApellidos;
-    private String nombreComercial;
+	// ====== SNAPSHOT CLIENTE ======
+	private String nombreApellidos;
+	private String nombreComercial;
 
-    private String direccion;
-    private String codigoPostal;
-    private String poblacion;
-    private String provincia;
+	private String direccion;
+	private String codigoPostal;
+	private String poblacion;
+	private String provincia;
 
-    private String telefono;
-    private String movil;
-    private String cifDni;
-    private String email;
+	private String telefono;
+	private String movil;
+	private String cifDni;
+	private String email;
 
-    // ====== Extra ======
-    private String modoEnvio;
-    private String formaCobro;
-    private String cuenta;
-    private String observaciones;
+	// ====== Extra ======
+	private String modoEnvio;
+	private String formaCobro;
+	private String cuenta;
+	private String observaciones;
 
-    // ====== Totales ======
-    private Double subtotal = 0.0;
-    private Double totalDescuento = 0.0;
-    private Double totalImporte = 0.0;
+	// ====== Totales ======
+	private Double subtotal = 0.0;
+	private Double totalDescuento = 0.0;
+	private Double totalImporte = 0.0;
 
-    private boolean confirmado = false;
+	private boolean confirmado = false;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cliente_id")
-    @JsonBackReference("cliente-albaranes") // ✅ CORREGIDO (antes estaba mal escrito)
-    private Cliente cliente;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "cliente_id")
+	@JsonBackReference("cliente-albaranes") // ✅ CORREGIDO (antes estaba mal escrito)
+	private Cliente cliente;
 
-    @OneToMany(mappedBy = "albaran", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference("albaran-lineas")
-    private List<LineaAlbaranCliente> lineas = new ArrayList<>();
+	@OneToMany(mappedBy = "albaran", cascade = CascadeType.ALL, orphanRemoval = true)
+	@JsonManagedReference("albaran-lineas")
+	private List<LineaAlbaranCliente> lineas = new ArrayList<>();
 
-    // ============================
-    // Helpers
-    // ============================
-    public void recalcularTotales() {
-        double sub = 0.0;
-        double dto = 0.0;
-        double total = 0.0;
+	@Column(name = "solo_historico", nullable = false)
+	private boolean soloHistorico = false;
 
-        if (lineas != null) {
-            for (LineaAlbaranCliente l : lineas) {
-                if (l == null) continue;
-                l.recalcular();
-                sub += safe(l.getBaseLinea());
-                dto += safe(l.getDescuentoImporte());
-                total += safe(l.getTotalLinea());
-            }
-        }
+	// ============================
+	// Helpers
+	// ============================
+	public void recalcularTotales() {
+		double sub = 0.0;
+		double dto = 0.0;
+		double total = 0.0;
 
-        this.subtotal = sub;
-        this.totalDescuento = dto;
-        this.totalImporte = total;
-    }
+		if (lineas != null) {
+			for (LineaAlbaranCliente l : lineas) {
+				if (l == null)
+					continue;
+				l.recalcular();
+				sub += safe(l.getBaseLinea());
+				dto += safe(l.getDescuentoImporte());
+				total += safe(l.getTotalLinea());
+			}
+		}
 
-    private double safe(Double v) {
-        return v != null ? v : 0.0;
-    }
+		this.subtotal = sub;
+		this.totalDescuento = dto;
+		this.totalImporte = total;
+	}
+
+	private double safe(Double v) {
+		return v != null ? v : 0.0;
+	}
 }

@@ -38,4 +38,7 @@ public class PagoCliente {
 	@JoinColumn(name = "cliente_id")
 	@JsonBackReference("cliente-pagos") // ✅ IMPORTANTE: mismo nombre que en Cliente
 	private Cliente cliente;
+
+	@Column(name = "factura_v2_id")
+	private Long facturaV2Id;
 }

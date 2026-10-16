@@ -5,7 +5,9 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 
 import jakarta.persistence.EntityManager;
@@ -19,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.empresa.crm.repositories.ProductoRepository;
 import com.empresa.crm.services.TicketNumeracionService;
 import com.empresa.crm.tenant.TenantContext;
 
@@ -31,12 +34,15 @@ public class TicketCobroService {
 	private final CajaService caja;
 	private final TicketNumeracionService numeracion;
 	private final ObjectMapper mapper;
+	private final ProductoRepository productos;
 
-	public TicketCobroService(CajaService caja, TicketNumeracionService numeracion, ObjectMapper mapper) {
+	public TicketCobroService(CajaService caja, TicketNumeracionService numeracion, ObjectMapper mapper,
+			ProductoRepository productos) {
 
 		this.caja = caja;
 		this.numeracion = numeracion;
 		this.mapper = mapper;
+		this.productos = productos;
 	}
 
 	public record Linea(Long productoId, String articulo, Integer cantidad, BigDecimal precio, BigDecimal iva) {
@@ -55,7 +61,6 @@ public class TicketCobroService {
 
 	@Transactional
 	public Resultado cobrar(Solicitud request) {
-
 		String empresa = TenantContext.get();
 
 		if (!Set.of("ARGASA", "ELECTROLUGA").contains(empresa == null ? "" : empresa)) {
@@ -65,10 +70,7 @@ public class TicketCobroService {
 		BigDecimal total = validar(request);
 		String contenido = serializar(request);
 
-		/*
-		 * Usa el mismo bloqueo que apertura y cierre. También serializa los reintentos
-		 * del mismo ticket.
-		 */
+		// Mismo bloqueo que apertura y cierre de caja.
 		caja.bloquearTickets();
 
 		List<?> existentes = em.createNativeQuery("""
@@ -79,6 +81,10 @@ public class TicketCobroService {
 				""").setParameter("empresa", empresa).setParameter("solicitud", request.solicitud().toString())
 				.getResultList();
 
+		/*
+		 * Un reintento devuelve el ticket existente: no vuelve a descontar stock ni
+		 * registrar el cobro.
+		 */
 		if (!existentes.isEmpty()) {
 			Object[] fila = (Object[]) existentes.get(0);
 
@@ -88,6 +94,9 @@ public class TicketCobroService {
 
 			return new Resultado(fila[0].toString(), new BigDecimal(fila[1].toString()));
 		}
+
+		// Solo se descuenta en una venta nueva.
+		descontarStock(request, empresa);
 
 		String numero = numeracion.reservar(empresa, request.solicitud());
 
@@ -116,7 +125,6 @@ public class TicketCobroService {
 	}
 
 	private BigDecimal validar(Solicitud request) {
-
 		if (request == null || request.solicitud() == null) {
 			throw error("Falta la solicitud del ticket");
 		}
@@ -143,15 +151,18 @@ public class TicketCobroService {
 		BigDecimal total = new BigDecimal("0.00");
 
 		for (Linea linea : request.lineas()) {
-
 			if (linea == null || linea.articulo() == null || linea.articulo().isBlank()
 					|| linea.articulo().length() > 1000 || linea.cantidad() == null || linea.cantidad() <= 0
 					|| linea.cantidad() > 1000000 || linea.precio() == null || linea.precio().signum() < 0
-					|| linea.precio().scale() > 2 || linea.precio().compareTo(new BigDecimal("999999999.99")) > 0
-					|| linea.iva() == null || linea.iva().signum() < 0
-					|| linea.iva().compareTo(new BigDecimal("100")) > 0) {
+					|| linea.precio().stripTrailingZeros().scale() > 2
+					|| linea.precio().compareTo(new BigDecimal("999999999.99")) > 0 || linea.iva() == null
+					|| linea.iva().signum() < 0 || linea.iva().compareTo(new BigDecimal("100")) > 0) {
 
 				throw error("Revisa los artículos, cantidades, precios e IVA");
+			}
+
+			if (linea.productoId() != null && linea.productoId() <= 0) {
+				throw error("Producto no válido");
 			}
 
 			BigDecimal importe = linea.precio().multiply(BigDecimal.valueOf(linea.cantidad())).setScale(2,
@@ -177,6 +188,34 @@ public class TicketCobroService {
 			return mapper.writeValueAsString(request);
 		} catch (JsonProcessingException exception) {
 			throw error("No se ha podido guardar el ticket");
+		}
+	}
+
+	private void descontarStock(Solicitud request, String empresa) {
+
+		/*
+		 * Agrupa las cantidades del mismo producto. Ordena por ID para actualizar
+		 * siempre en el mismo orden.
+		 */
+		Map<Long, Integer> cantidades = new TreeMap<>();
+
+		for (Linea linea : request.lineas()) {
+			// Un artículo manual no pertenece al inventario.
+			if (linea.productoId() == null) {
+				continue;
+			}
+
+			cantidades.merge(linea.productoId(), linea.cantidad(), Math::addExact);
+		}
+
+		for (Map.Entry<Long, Integer> entrada : cantidades.entrySet()) {
+
+			int actualizados = productos.decrementUnidadesIfAvailable(entrada.getKey(), entrada.getValue(), empresa);
+
+			if (actualizados != 1) {
+				throw error("Stock insuficiente o producto no disponible " + "en esta empresa. Producto #"
+						+ entrada.getKey() + ". Actualiza los productos y revisa el ticket.");
+			}
 		}
 	}
 }

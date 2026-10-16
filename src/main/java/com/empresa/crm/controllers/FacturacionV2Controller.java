@@ -91,9 +91,13 @@ public class FacturacionV2Controller {
 		return ResponseEntity.ok(facturacionV2Service.getFacturaById(id));
 	}
 
+	public record CobrarFacturaRequest(String metodo) {
+	}
+
 	@PostMapping("/facturas/{id:\\d+}/marcar-pagada")
-	public FacturaV2Response marcarComoPagada(@PathVariable Long id) {
-		return facturacionV2Service.marcarComoPagada(id);
+	public FacturaV2Response marcarComoPagada(@PathVariable Long id, @RequestBody CobrarFacturaRequest request) {
+
+		return facturacionV2Service.marcarComoPagada(id, request == null ? null : request.metodo());
 	}
 
 	@PostMapping("/facturas/{id:\\d+}/facturadirecta/borrador")

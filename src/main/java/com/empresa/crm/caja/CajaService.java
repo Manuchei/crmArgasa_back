@@ -14,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.empresa.crm.tenant.TenantContext;
+import com.empresa.crm.entities.PagoCliente;
+import com.empresa.crm.entities.facturacionV2.FacturaV2;
 
 @Service
 @Transactional
@@ -170,14 +172,79 @@ public class CajaService {
 				caja.efectivoContado, diferencia, caja.observaciones);
 	}
 
+	private String conceptoMovimiento(CajaMovimiento movimiento, String empresaCaja) {
+
+		boolean cobroCliente = "PAGO_CLIENTE".equals(movimiento.origen);
+
+		boolean anulacionCliente = "ANULA_PAGO_CLIENTE".equals(movimiento.origen);
+
+		if ((!cobroCliente && !anulacionCliente) || movimiento.origenId == null) {
+			return movimiento.concepto;
+		}
+
+		PagoCliente pago = em.find(PagoCliente.class, movimiento.origenId);
+
+		if (pago == null || !empresaCaja.equals(pago.getEmpresa())) {
+			return movimiento.concepto;
+		}
+
+		String referencia = null;
+
+		if (pago.getFacturaV2Id() != null) {
+			FacturaV2 factura = em.find(FacturaV2.class, pago.getFacturaV2Id());
+
+			if (factura != null && empresaCaja.equals(factura.getEmpresa())) {
+				referencia = "factura " + factura.getSerie() + "-" + factura.getNumero();
+			}
+		}
+
+		/*
+		 * Para pagos anteriores que guardaron la factura en observaciones pero no
+		 * tienen el vínculo.
+		 */
+		if (referencia == null) {
+			String observaciones = pago.getObservaciones();
+			String prefijo = "Cobro de factura ";
+
+			if (observaciones != null && observaciones.trim().startsWith(prefijo)) {
+
+				String numero = observaciones.trim().substring(prefijo.length()).trim();
+
+				if (!numero.isBlank()) {
+					referencia = "factura " + numero;
+				}
+			}
+		}
+
+		if (referencia == null) {
+			return movimiento.concepto;
+		}
+
+		String cliente = pago.getCliente() == null ? "" : pago.getCliente().getNombreApellidos();
+
+		String concepto = (anulacionCliente ? "Anulación de cobro de " : "Cobro de ") + referencia;
+
+		if (cliente != null && !cliente.isBlank()) {
+			concepto += " · " + cliente;
+		}
+
+		concepto += " · Pago #" + pago.getId();
+
+		if (anulacionCliente) {
+			concepto += " · " + movimiento.concepto;
+		}
+
+		return concepto;
+	}
+
 	private Detalle detalle(CajaSesion caja) {
-		List<Movimiento> movimientos = movimientos(caja.id).stream()
+		List<Movimiento> lista = movimientos(caja.id).stream()
 				.map(movimiento -> new Movimiento(movimiento.id, instante(movimiento.fecha), movimiento.metodo,
-						movimiento.importe, movimiento.concepto, movimiento.actor, movimiento.origen,
-						movimiento.origenId))
+						movimiento.importe, conceptoMovimiento(movimiento, caja.empresa), movimiento.actor,
+						movimiento.origen, movimiento.origenId))
 				.toList();
 
-		return new Detalle(resumen(caja), movimientos);
+		return new Detalle(resumen(caja), lista);
 	}
 
 	public Resumen actual() {

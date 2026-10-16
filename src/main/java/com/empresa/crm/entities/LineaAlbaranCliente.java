@@ -1,7 +1,7 @@
 package com.empresa.crm.entities;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -13,7 +13,7 @@ public class LineaAlbaranCliente {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
-	
+
 	@Column(name = "empresa", nullable = false, length = 20)
 	private String empresa;
 
@@ -38,9 +38,13 @@ public class LineaAlbaranCliente {
 	@JoinColumn(name = "albaran_id")
 	@JsonBackReference("albaran-lineas")
 	private AlbaranCliente albaran;
-	
+
 	@Column(name = "factura_v2_id")
 	private Long facturaV2Id;
+
+	@JsonProperty(access = JsonProperty.Access.READ_ONLY)
+	@Column(name = "trabajo_origen_id")
+	private Long trabajoOrigenId;
 
 	public void recalcular() {
 		double uds = unidades != null ? unidades : 0.0;

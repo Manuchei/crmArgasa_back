@@ -59,8 +59,18 @@ public class PagoClienteService {
 
 		PagoCliente guardado = pagoRepo.save(p);
 
+		String concepto = "Cobro de " + c.getNombreApellidos();
+
+		String observaciones = guardado.getObservaciones();
+
+		if (observaciones != null && observaciones.startsWith("Cobro de factura ")) {
+			concepto = observaciones.trim() + " · " + c.getNombreApellidos();
+		}
+
+		concepto += " · Pago #" + guardado.getId();
+
 		cajaService.registrarCobro("PAGO_CLIENTE", guardado.getId(), guardado.getEmpresa(), guardado.getImporte(),
-				guardado.getMetodo(), "Cobro de " + c.getNombreApellidos() + " · Pago #" + guardado.getId());
+				guardado.getMetodo(), concepto);
 
 		return guardado;
 	}
@@ -114,6 +124,11 @@ public class PagoClienteService {
 		}
 
 		cajaService.anularCobro("PAGO_CLIENTE", pagoId);
+		if (p.getFacturaV2Id() != null) {
+			throw new org.springframework.web.server.ResponseStatusException(
+					org.springframework.http.HttpStatus.CONFLICT,
+					"Este pago pertenece a una factura cobrada. " + "Debe rectificarse junto con la factura.");
+		}
 
 		pagoRepo.deleteById(pagoId);
 	}
